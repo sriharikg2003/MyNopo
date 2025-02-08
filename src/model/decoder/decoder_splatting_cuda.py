@@ -193,7 +193,7 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         covariances_flat = gaussians_covariances_reshaped.view(b, num_points, 3, 3)  
         harmonics_flat = gaussians_harmonics_reshaped[..., 0].view(b, num_points, 3, 1)  
         opacities_flat = gaussians_opacities_reshaped.view(b, num_points)  
-
+        # 
 
         data = torch.cat([
             means_flat, 
