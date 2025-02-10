@@ -217,7 +217,7 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         layers = [self.scratch.layer_rn[idx](l) for idx, l in enumerate(layers)]
 
         # Fuse layers using refinement stages
-        breakpoint()
+
         path_5 = self.scratch.refinenet5(layers[4])[:, :, :layers[3].shape[2], :layers[3].shape[3]]
         path_4 = self.scratch.refinenet5(path_5, layers[3])
         path_3 = self.scratch.refinenet3(path_4, layers[2])
