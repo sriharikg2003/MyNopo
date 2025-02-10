@@ -118,59 +118,6 @@ def choose_and_get_patch_coordinates(images):
     # images[:, :, row_start2 : row_end2 ,   col_start2 : col_end2 ] = 0
     return (row_start1, row_end1, col_start1, col_end1), (row_start2, row_end2, col_start2, col_end2)
 
-# def get_superpixel_representation(images):
-
-#     img = images.permute(0, 2, 3, 1).cpu().numpy()  
-#     batch_masks = []
-    
-#     for b in range(img.shape[0]):  
-#         segments_slic = slic(img[b], n_segments=300, compactness=10, sigma=1, start_label=1)
-        
-#         super_pixel_coordinates = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
-        
-#         for i in range(segments_slic.shape[0]):
-#             for j in range(segments_slic.shape[1]):
-#                 super_pixel_coordinates[segments_slic[i, j]].append((i, j))
-        
-#         selected_superpixels = random.sample(list(super_pixel_coordinates.keys()), 4)
-
-#         percentage = 10
-#         representation_gaussians = []
-#         for sp in selected_superpixels:
-#             num_pixels = int(len(super_pixel_coordinates[sp]) * percentage / 100)
-#             representation_gaussians.extend(random.sample(super_pixel_coordinates[sp], num_pixels))
-        
-        
-#         mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)  
-
-
-#         for sp in selected_superpixels:
-#             for x, y in super_pixel_coordinates[sp]:
-#                 mask[x, y] = False
-#                 img[b][x,y,:] = 0
-
-#         for x, y in representation_gaussians:
-#             mask[x, y] = True
-
-#         # plt.figure(figsize=(6, 3))
-#         # plt.subplot(1, 2, 1)
-#         # plt.imshow(img[b])
-#         # plt.title("Modified Image")
-#         # plt.axis("off")
-
-#         # # Save the mask
-#         # plt.subplot(1, 2, 2)
-#         # plt.imshow(mask, cmap="gray")
-#         # plt.title("Mask")
-#         # plt.axis("off")
-
-#         # plt.savefig(f"mask_{b}.png", bbox_inches='tight')
-#         # plt.close()
-
-#         batch_masks.append(torch.tensor(mask))  # Convert to PyTorch tensor
-#     images = torch.tensor(img).permute(0, 3, 1, 2) 
-#     return images , torch.stack(batch_masks)  
-
 
 # Same area patches 
 
@@ -178,32 +125,6 @@ import torch
 import logging
 import multiprocessing
 # multiprocessing.set_start_method('spawn', force=True)
-
-def get_sam(images):
-    from sam2.build_sam import build_sam2
-    from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
-    sam2_checkpoint = "//workspace/raid/cdsbad/splat3r_try/sam2/checkpoints/sam2.1_hiera_large.pt"
-    model_cfg = "//workspace/raid/cdsbad/splat3r_try/sam2/sam2/configs/sam2.1/sam2.1_hiera_l.yaml"
-    sam2 = build_sam2(model_cfg, sam2_checkpoint, device='cuda', apply_postprocessing=False)
-
-    mask_generator = SAM2AutomaticMaskGenerator(sam2)
-    img = images.permute(0, 2, 3, 1).cpu().numpy()  
-    batch_masks = []
-    
-    for i, single_img in enumerate(img):
-        print("************************GOOL")
-        masks = mask_generator.generate(single_img)
-        print("************************GOOL")
-        mask = masks[0]['segmentation']  
-        print("************************GOOL")
-        batch_masks.append(torch.tensor(mask, dtype=torch.float32))
-        
-        # Save the mask image
-        mask_image = Image.fromarray((mask * 255).astype(np.uint8))
-        mask_image.save(f"mask_{i}.png")
-
-    images = torch.tensor(img).permute(0, 3, 1, 2) 
-    return images, torch.stack(batch_masks)
 
 
 
