@@ -145,12 +145,6 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
 
-    """
-    Wavelet + 3D cluster + Superpixel
-
-    """
-
-
     def forward(
         self,
         context: dict,
@@ -160,26 +154,32 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         device = context["image"].device
         b, v, _, h, w = context["image"].shape
 
+        context_rep_float = context['rep'].float()
+        context_rep_resized = F.interpolate(context_rep_float, size=(256, 768), mode='nearest')    
+        context_rep_resized = context_rep_resized.round().int() 
+        dec1_mask = context_rep_resized[0][:1]
+        dec2_mask = context_rep_resized[0][1:]
+
 
         with torch.cuda.amp.autocast(enabled=False):
-           
+
             dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
-            res1 = self._downstream_head(1, [tok.float() for tok in dec1]    , shape1)
-            res2 = self._downstream_head(2, [tok.float() for tok in dec2]   , shape2)
+            res1 = self._downstream_head(1, [tok.float() for tok in dec1]  +  [tok.float() for tok in dec1_mask]  , shape1)
+            res2 = self._downstream_head(2, [tok.float() for tok in dec2] +  [tok.float() for tok in dec2_mask]  , shape2)
             if self.gs_params_head_type == 'linear':
                 GS_res1 = rearrange_head(self.gaussian_param_head(dec1[-1]), self.patch_size, h, w)
                 GS_res2 = rearrange_head(self.gaussian_param_head2(dec2[-1]), self.patch_size, h, w)
             elif self.gs_params_head_type == 'dpt':
-                GS_res1 = self.gaussian_param_head([tok.float() for tok in dec1], shape1[0].cpu().tolist())
+                GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1]  +  [tok.float() for tok in dec1_mask]   , shape1[0].cpu().tolist())
                 GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
-                GS_res2 = self.gaussian_param_head2([tok.float() for tok in dec2], shape2[0].cpu().tolist())
+                GS_res2 = self.gaussian_param_head2([tok.float() for tok in dec2] +   [tok.float() for tok in dec2_mask], shape2[0].cpu().tolist())
                 GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
             elif self.gs_params_head_type == 'dpt_gs':
-                GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1]   , res1['pts3d'].permute(0, 3, 1, 2), view1['img'][:, :3] , shape1[0].cpu().tolist())
+                GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1] +  [tok.float() for tok in dec1_mask]   , res1['pts3d'].permute(0, 3, 1, 2), view1['img'][:, :3] , shape1[0].cpu().tolist())
                 GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
-                GS_res2 = self.gaussian_param_head2(  [tok.float() for tok in dec2]    , res2['pts3d'].permute(0, 3, 1, 2), view2['img'][:, :3], shape2[0].cpu().tolist())
+                GS_res2 = self.gaussian_param_head2(  [tok.float() for tok in dec2]   + [tok.float() for tok in dec2_mask]   , res2['pts3d'].permute(0, 3, 1, 2), view2['img'][:, :3], shape2[0].cpu().tolist())
                 GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
-
+        
         pts3d1 = res1['pts3d']
         pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
         pts3d2 = res2['pts3d']
