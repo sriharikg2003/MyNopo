@@ -151,10 +151,18 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         
         mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
 
+
+        
         threshold = np.percentile(mean_wavelet_values, 40)
         selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
+
+        top_80 = random.sample(list(selected_superpixels), int(0.8 * len(selected_superpixels)))
+        remaining_20 = random.sample(list(set(sp_cord.keys()) - set(selected_superpixels)), int(0.2 * len(selected_superpixels)))
+
+
+        top_80.extend(remaining_20)
         representation_gaussians = []
-        for sp in selected_superpixels:
+        for sp in top_80:
             num_pixels = int(len(sp_cord[sp]) * percentage / 100)
             representation_gaussians.extend(random.sample(sp_cord[sp], num_pixels))
 
@@ -162,7 +170,7 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)
 
 
-        for sp in selected_superpixels:
+        for sp in top_80:
             for x, y in sp_cord[sp]:
                 mask[x, y] = False
                 # img[b][x, y, :] = 0  
@@ -183,7 +191,7 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         plt.title("Mask")
         plt.axis("off")
 
-        plt.savefig(f"mask_{b}.png", bbox_inches='tight')
+        plt.savefig(f"mask____{b}.png", bbox_inches='tight')
         plt.close()
 
         batch_masks.append(torch.tensor(mask))  
