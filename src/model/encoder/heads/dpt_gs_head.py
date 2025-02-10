@@ -229,8 +229,7 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         path_1 = path_1 + direct_img_feat
 
 
-        out = self.head(path_1  )
-
+        out = self.head(path_1)
 
         return out
 
