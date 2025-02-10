@@ -755,9 +755,6 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         # # # END of Masking and all
 
-       
-
-
         with torch.cuda.amp.autocast(enabled=False):
            
             dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
