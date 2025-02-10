@@ -224,10 +224,6 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
 
-       # @MASKED
-        # img_patch , img_unpatch = imgs
-
-        # @UNMASKED
         direct_img_feat = self.input_merger(imgs)
         path_1 = self.feat_up(path_1)
         path_1 = path_1 + direct_img_feat

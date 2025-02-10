@@ -520,13 +520,19 @@ class ModelWrapper(LightningModule):
 
         # Construct comparison image.
         context_img = inverse_normalize(batch["context"]["image"][0])
+        patch_img = batch["context"]["rep"][0]
         context_img_depth = vis_depth_map(gaussian_means)
+        patches  = []
         context = []
         for i in range(context_img.shape[0]):
             context.append(context_img[i])
             context.append(context_img_depth[i])
+        for i in range(patch_img.shape[0]):
+            patches.append(patch_img[i].repeat(3, 1, 1)) 
+
         comparison = hcat(
             add_label(vcat(*context), "Context"),
+            add_label(vcat(*patches), "Patch"),
             add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
             add_label(vcat(*rgb_pred), "Target (Prediction)"),
             add_label(vcat(*depth_pred), "Depth (Prediction)"),
