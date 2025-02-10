@@ -125,7 +125,7 @@ import pywt
 import random
 import matplotlib.pyplot as plt
 from skimage.segmentation import slic, mark_boundaries
-
+import cv2
 def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, percentage=10):
     img = images.permute(0, 2, 3, 1).cpu().numpy()
     batch_masks = []
@@ -141,9 +141,7 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         coeffs = pywt.wavedec2(original_img[:, :, 0], wavelet, level=level)
         _, (cH, cV, cD) = coeffs 
         wavelet_magnitude = np.abs(cH) + np.abs(cV) + np.abs(cD) 
-        resized_z = np.pad(wavelet_magnitude, ((0, original_img.shape[0] - wavelet_magnitude.shape[0]),
-                                                (0, original_img.shape[1] - wavelet_magnitude.shape[1])),
-                                                mode='constant')
+        resized_z =  cv2.resize(cD, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
 
         for i in range(segments_slic.shape[0]):
             for j in range(segments_slic.shape[1]):
@@ -151,11 +149,10 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
                 sp_wave_values[segments_slic[i, j]].append(abs(resized_z[i, j]))
 
         
-        selected_superpixels = np.array(list(sp_cord.keys()))[
-            np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values]) < 1
-        ]
+        mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
 
-   
+        threshold = np.percentile(mean_wavelet_values, 40)
+        selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
         representation_gaussians = []
         for sp in selected_superpixels:
             num_pixels = int(len(sp_cord[sp]) * percentage / 100)

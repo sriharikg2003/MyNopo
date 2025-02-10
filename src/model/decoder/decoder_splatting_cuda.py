@@ -75,11 +75,10 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         gaussians_opacities_reshaped = gaussians_opacities_reshaped * rep
 
 
-
-        gaussians.means = means_flat.view(b, 2*h*w, 3)
-        gaussians.covariances = covariances_flat.view(b, 2*h*w, 3, 3)
-        gaussians.harmonics = harmonics_flat.view(b, 2*h*w, 3, 1) 
-        gaussians.opacities = opacities_flat.view(b, 2*h*w)
+        gaussians.means = gaussians_means_reshaped.view(b,2*h*w , 3)
+        gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
+        gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
+        gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
 
 
 
@@ -103,6 +102,6 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         depth = rearrange(depth, "(b v) h w -> b v h w", b=b, v=v)
         print("****")
         # import torchvision
-        torchvision.utils.save_image(depth[0][1] , f"depth_{stride}.png")
-        torchvision.utils.save_image(color[0][1] , f"color_{stride}.png")
+        # torchvision.utils.save_image(depth[0][1] , f"depth_{stride}.png")
+        # torchvision.utils.save_image(color[0][1] , f"color_{stride}.png")
         return DecoderOutput(color, depth)
