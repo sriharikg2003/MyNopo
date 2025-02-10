@@ -115,7 +115,7 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
 
 
 
-        exit()
+
         # import torchvision
         # torchvision.utils.save_image(depth[0][1] , f"depth_{stride}.png")
         # torchvision.utils.save_image(color[0][1] , f"color_{stride}.png")
