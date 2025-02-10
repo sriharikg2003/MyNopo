@@ -55,6 +55,15 @@ class EncoderNoPoSplatCfg:
     pretrained_weights: str = ""
     pose_free: bool = True
 
+from pathlib import Path
+
+import numpy as np
+import torch
+from einops import einsum, rearrange
+from jaxtyping import Float
+from plyfile import PlyData, PlyElement
+from scipy.spatial.transform import Rotation as R
+from torch import Tensor
 
 def rearrange_head(feat, patch_size, H, W):
     B = feat.shape[0]

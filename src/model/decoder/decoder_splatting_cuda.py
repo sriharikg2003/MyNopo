@@ -12,12 +12,6 @@ from ..types import Gaussians
 from .cuda_splatting import DepthRenderingMode, render_cuda
 from .decoder import Decoder, DecoderOutput
 import numpy as np
-
-@dataclass
-class DecoderSplattingCUDACfg:
-    name: Literal["splatting_cuda"]
-    background_color: list[float]
-    make_scale_invariant: bool
 import open3d as o3d
 import numpy as np
 import torch
@@ -27,6 +21,16 @@ from scipy.spatial.transform import Rotation as R
 from pathlib import Path
 from plyfile import PlyData, PlyElement
 
+import torch
+import numpy as np
+import einops
+from scipy.spatial.transform import Rotation
+from plyfile import PlyData, PlyElement
+@dataclass
+class DecoderSplattingCUDACfg:
+    name: Literal["splatting_cuda"]
+    background_color: list[float]
+    make_scale_invariant: bool
 
 
 class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
@@ -88,8 +92,6 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
         gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
         gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
-
-
 
 
         color, depth = render_cuda(

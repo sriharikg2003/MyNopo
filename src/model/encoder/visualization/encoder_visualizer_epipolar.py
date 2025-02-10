@@ -81,6 +81,7 @@ class EncoderVisualizerEpipolar(
             )
 
 
+
         # This is kind of hacky for now, since we're using it for short experiments.
         if self.cfg.export_ply and wandb.run is not None:
             name = wandb.run._name.split(" ")[0]
