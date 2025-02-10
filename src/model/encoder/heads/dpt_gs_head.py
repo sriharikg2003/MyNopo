@@ -217,7 +217,9 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         layers = [self.scratch.layer_rn[idx](l) for idx, l in enumerate(layers)]
 
         # Fuse layers using refinement stages
-        path_4 = self.scratch.refinenet4(layers[3])[:, :, :layers[2].shape[2], :layers[2].shape[3]]
+        breakpoint()
+        path_5 = self.scratch.refinenet5(layers[4])[:, :, :layers[3].shape[2], :layers[3].shape[3]]
+        path_4 = self.scratch.refinenet5(path_5, layers[3])
         path_3 = self.scratch.refinenet3(path_4, layers[2])
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
@@ -301,8 +303,8 @@ def create_gs_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postpr
     return PixelwiseTaskWithDPT(num_channels=out_nchan + has_conf,
                                 feature_dim=feature_dim,
                                 last_dim=last_dim,
-                                hooks_idx=[0, l2*2//4, l2*3//4, l2] ,
-                                dim_tokens=[ed, dd, dd, dd, ed, dd, dd, dd],
+                                hooks_idx=[0, l2*2//4, l2*3//4, l2,13] ,
+                                dim_tokens=[ed, dd, dd, dd, dd],
                                 postprocess=postprocess_func,
                                 depth_mode=net.depth_mode,
                                 conf_mode=net.conf_mode,

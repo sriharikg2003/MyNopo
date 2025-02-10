@@ -24,12 +24,13 @@ def make_scratch(in_shape, out_shape, groups=1, expand=False):
     out_shape2 = out_shape
     out_shape3 = out_shape
     out_shape4 = out_shape
+    out_shape5 = out_shape
     if expand == True:
         out_shape1 = out_shape
         out_shape2 = out_shape * 2
         out_shape3 = out_shape * 4
         out_shape4 = out_shape * 8
-
+        out_shape5 = out_shape * 16
     scratch.layer1_rn = nn.Conv2d(
         in_shape[0],
         out_shape1,
@@ -67,15 +68,22 @@ def make_scratch(in_shape, out_shape, groups=1, expand=False):
         groups=groups,
     )
 
+    scratch.layer5_rn = nn.Conv2d(
+        in_shape[4],
+        out_shape5,
+        kernel_size=3,
+        stride=1,
+        padding=1,
+        bias=False,
+        groups=groups,
+    )
+
     scratch.layer_rn = nn.ModuleList([
         scratch.layer1_rn,
         scratch.layer2_rn,
         scratch.layer3_rn,
         scratch.layer4_rn,
-        scratch.layer1_rn,
-        scratch.layer2_rn,
-        scratch.layer3_rn,
-        scratch.layer4_rn
+        scratch.layer5_rn,
     ])
 
     return scratch
@@ -287,7 +295,7 @@ class DPTOutputAdapter(nn.Module):
                  patch_size: Union[int, Tuple[int, int]] = 16,
                  main_tasks: Iterable[str] = ('rgb',),
                  hooks: List[int] = [2, 5, 8, 11],
-                 layer_dims: List[int] = [96, 192, 384, 768],
+                 layer_dims: List[int] = [96, 192, 384, 768, 768],
                  feature_dim: int = 256,
                  last_dim: int = 32,
                  use_bn: bool = False,
@@ -318,6 +326,7 @@ class DPTOutputAdapter(nn.Module):
         self.scratch.refinenet2 = make_fusion_block(feature_dim, use_bn, output_width_ratio)
         self.scratch.refinenet3 = make_fusion_block(feature_dim, use_bn, output_width_ratio)
         self.scratch.refinenet4 = make_fusion_block(feature_dim, use_bn, output_width_ratio)
+        self.scratch.refinenet5 = make_fusion_block(feature_dim, use_bn, output_width_ratio)
 
         if self.head_type == 'regression':
             # The "DPTDepthModel" head
@@ -417,15 +426,28 @@ class DPTOutputAdapter(nn.Module):
             )
         )
 
+        self.act_5_postprocess = nn.Sequential(
+            nn.Conv2d(
+                in_channels=self.dim_tokens_enc[4],
+                out_channels=self.layer_dims[4],
+                kernel_size=1, stride=1, padding=0,
+            ),
+            nn.Conv2d(
+                in_channels=self.layer_dims[4],
+                out_channels=self.layer_dims[4],
+                kernel_size=3, stride=2, padding=1,
+            )
+        )
+
+
+
         self.act_postprocess = nn.ModuleList([
             self.act_1_postprocess,
             self.act_2_postprocess,
             self.act_3_postprocess,
             self.act_4_postprocess,
-            self.act_1_postprocess,
-            self.act_2_postprocess,
-            self.act_3_postprocess,
-            self.act_4_postprocess
+            self.act_5_postprocess
+            
 
         ])
 
@@ -461,54 +483,13 @@ class DPTOutputAdapter(nn.Module):
 
         # Fuse layers using refinement stages
         path_4 = self.scratch.refinenet4(layers[3])
-        path_3 = self.scratch.refinenet3(path_4, layers[2])
+        path_3 = self.scratch.refinenet3(path_3, layers[2])
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
 
 
         print("O\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\n")
-        # Output head
+
         out = self.head(path_1)
 
         return out
-
-# @MASKED
-
-    # def forward(self, encoder_tokens: List[torch.Tensor], image_size):
-    #         #input_info: Dict):
-    #     assert self.dim_tokens_enc is not None, 'Need to call init(dim_tokens_enc) function first'
-    #     H, W = image_size
-
-    #     # Number of patches in height and width
-    #     N_H = H // (self.stride_level * self.P_H)
-    #     N_W = W // (self.stride_level * self.P_W)
-    #     # Hook decoder onto 4 layers from specified ViT layers
-    #     layers = [encoder_tokens[hook] for hook in self.hooks]
-
-    #     # Extract only task-relevant tokens and ignore global tokens.
-    #     layers = [self.adapt_tokens(l) for l in layers]
-
-    #     # Reshape tokens to spatial representation
-    #     layers = [rearrange(l, 'b (nh nw) c -> b c nh nw', nh=N_H, nw=N_W) for l in layers]
-
-    #     layers = [self.act_postprocess[idx](l) for idx, l in enumerate(layers)]
-    #     # Project layers to chosen feature dim
-    #     layers = [self.scratch.layer_rn[idx](l) for idx, l in enumerate(layers)]
-
-    #     # Fuse layers using refinement stages
-    #     path_4 = self.scratch.refinenet4(layers[3])
-    #     path_3 = self.scratch.refinenet3(path_4, layers[2])
-    #     path_2 = self.scratch.refinenet2(path_3, layers[1])
-    #     path_1 = self.scratch.refinenet1(path_2, layers[0])
-
-
-    #     path_4_ = self.scratch.refinenet4(layers[3 + 4 ])[:, :, :layers[2 + 4 ].shape[2], :layers[2 + 4 ].shape[3]]
-    #     path_3_ = self.scratch.refinenet3(path_4_, layers[2 + 4 ])
-    #     path_2_ = self.scratch.refinenet2(path_3_, layers[1 + 4 ])
-    #     path_1_ = self.scratch.refinenet1(path_2_, layers[0 + 4 ])
-
-    #     print("O\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\n")
-    #     # Output head
-    #     out = self.head(path_1)
-
-    #     return out
