@@ -275,7 +275,7 @@ def apply_crop_shim_to_views(views: AnyViews, shape: tuple[int, int] , is_contex
 
 
         # Super pixels
-        new_images , representation_gaussians = get_superpixel_representation(images)
+        new_images , representation_gaussians = get_wavelet_superpixel_representation(images)
 
         return {
             **views,
