@@ -138,6 +138,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         return 0.5 * (1 - (1 - pdf) ** exponent + pdf ** (1 / exponent))
 
     def _downstream_head(self, head_num, decout, img_shape, ray_embedding=None):
+
         B, S, D = decout[-1].shape
         # img_shape = tuple(map(int, img_shape))
         head = getattr(self, f'head{head_num}')
@@ -157,8 +158,8 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         context_rep_float = context['rep'].float()
         context_rep_resized = F.interpolate(context_rep_float, size=(256, 768), mode='nearest')    
         context_rep_resized = context_rep_resized.round().int() 
-        dec1_mask = context_rep_resized[0][:1]
-        dec2_mask = context_rep_resized[0][1:]
+        dec1_mask = context_rep_resized[:, :1] 
+        dec2_mask = context_rep_resized[:, 1:]
 
 
         with torch.cuda.amp.autocast(enabled=False):
