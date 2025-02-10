@@ -564,17 +564,17 @@ class ModelWrapper(LightningModule):
                     extra_label="",
                 )[0]
             )
-        self.logger.log_image(
-            "projection",
-            [prep_image(add_border(projections))],
-            step=self.global_step,
-        )
+        # self.logger.log_image(
+        #     "projection",
+        #     [prep_image(add_border(projections))],
+        #     step=self.global_step,
+        # )
 
         # Draw cameras.
         cameras = hcat(*render_cameras(batch, 256))
-        self.logger.log_image(
-            "cameras", [prep_image(add_border(cameras))], step=self.global_step
-        )
+        # self.logger.log_image(
+        #     "cameras", [prep_image(add_border(cameras))], step=self.global_step
+        # )
 
         if self.encoder_visualizer is not None:
             for k, image in self.encoder_visualizer.visualize(
@@ -739,17 +739,18 @@ class ModelWrapper(LightningModule):
 
         # Since the PyTorch Lightning doesn't support video logging, log to wandb directly.
         try:
-            wandb.log(visualizations)
+            # wandb.log(visualizations)
+            a=1
         except Exception:
             assert isinstance(self.logger, LocalLogger)
-            for key, value in visualizations.items():
-                tensor = value._prepare_video(value.data)
-                clip = mpy.ImageSequenceClip(list(tensor), fps=value._fps)
-                dir = LOG_PATH / key
-                dir.mkdir(exist_ok=True, parents=True)
-                clip.write_videofile(
-                    str(dir / f"{self.global_step:0>6}.mp4"), logger=None
-                )
+            # for key, value in visualizations.items():
+            #     tensor = value._prepare_video(value.data)
+            #     clip = mpy.ImageSequenceClip(list(tensor), fps=value._fps)
+            #     dir = LOG_PATH / key
+            #     dir.mkdir(exist_ok=True, parents=True)
+            #     clip.write_videofile(
+            #         str(dir / f"{self.global_step:0>6}.mp4"), logger=None
+            #     )
 
     def print_preview_metrics(self, metrics: dict[str, float | Tensor], methods: list[str] | None = None, overlap_tag: str | None = None) -> None:
         if getattr(self, "running_metrics", None) is None:

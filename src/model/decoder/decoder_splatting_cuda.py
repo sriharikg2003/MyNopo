@@ -21,56 +21,11 @@ class DecoderSplattingCUDACfg:
 import open3d as o3d
 import numpy as np
 import torch
-
-def export_gaussian_splats_to_ply(gaussians_means, gaussians_covariances, gaussians_opacities, output_filename):
-    """
-    Exports the Gaussian means as splats (points with radii and opacities) to a PLY file.
-    """
-    # Flatten the means to create an Nx3 array of points (N = number of Gaussians)
-    points = gaussians_means.view(-1, 3).cpu().numpy()
-    
-    # Flatten the covariance matrices (to get radii)
-    covariances = gaussians_covariances.view(-1, 3, 3).cpu().numpy()
-
-    # Flatten opacities (to scale the color or opacity of the splats)
-    opacities = gaussians_opacities.view(-1).cpu().numpy()
-
-    # Create an Open3D PointCloud object
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-
-    # Compute radii based on the eigenvalues of the covariance matrix
-    radii = []
-    for cov in covariances:
-        eigvals, _ = np.linalg.eigh(cov)  # Eigenvalues for each covariance matrix
-        radius = np.max(np.sqrt(eigvals))  # We take the largest eigenvalue for scaling
-        radii.append(radius)
-    radii = np.array(radii)
-
-    # Create a list of colors based on opacities (we can use a colormap or just use grayscale)
-    colors = np.ones((points.shape[0], 3))  # Default white color
-    colors *= np.expand_dims(opacities, axis=1)  # Modulate color intensity by opacity
-
-    # Set colors in point cloud
-    pcd.colors = o3d.utility.Vector3dVector(colors)
-
-    # To visualize the Gaussian splats, we can simulate a "splat" using small spheres
-    # Create spheres at each point with radius corresponding to the Gaussian size
-    spheres = []
-    for i, point in enumerate(points):
-        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=radii[i] * 0.1)  # Scale factor to control size
-        sphere.translate(point)
-        spheres.append(sphere)
-
-    # Combine all the spheres into a single mesh (optional)
-    splat_mesh = o3d.geometry.TriangleMesh()
-    for sphere in spheres:
-        splat_mesh += sphere
-
-    # Optionally, visualize or save the splats
-    o3d.io.write_triangle_mesh(output_filename, splat_mesh)
-    print(f"Gaussian splats saved to {output_filename}")
-
+import numpy as np
+import torch
+from scipy.spatial.transform import Rotation as R
+from pathlib import Path
+from plyfile import PlyData, PlyElement
 
 
 
@@ -134,7 +89,7 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
         gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
 
-        export_gaussian_splats_to_ply(gaussians.means, gaussians.covariances, gaussians.opacities, "output_gaussian_splats.ply")
+
 
 
         color, depth = render_cuda(
