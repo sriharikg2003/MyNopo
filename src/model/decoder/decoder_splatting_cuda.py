@@ -20,7 +20,7 @@ import torch
 from scipy.spatial.transform import Rotation as R
 from pathlib import Path
 from plyfile import PlyData, PlyElement
-
+import copy
 import torch
 import numpy as np
 import einops
@@ -66,11 +66,17 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
 
         h , w = image_shape
 
+        original_gaussians = Gaussians(
+            means=gaussians.means.clone().detach(),
+            covariances=gaussians.covariances.clone().detach(),
+            harmonics=gaussians.harmonics.clone().detach(),
+            opacities=gaussians.opacities.clone().detach()
+        )
 
         kwargs = {k: v for k, v in kwargs.items() if k in ["rep"]} 
         rep = kwargs["rep"] 
         
-            
+        
         gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
         gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
         gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
@@ -119,4 +125,4 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         # import torchvision
         # torchvision.utils.save_image(depth[0][1] , f"depth_{stride}.png")
         # torchvision.utils.save_image(color[0][1] , f"color_{stride}.png")
-        return DecoderOutput(color, depth)
+        return DecoderOutput(color, depth , original_gaussians)

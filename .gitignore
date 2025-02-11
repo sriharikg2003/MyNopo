@@ -175,6 +175,7 @@ cython_debug/
 /slurm_logs
 *.torch
 *.ckpt
+*.ply
 table.tex
 /baselines
 /test/*

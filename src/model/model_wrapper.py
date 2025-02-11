@@ -221,10 +221,26 @@ class ModelWrapper(LightningModule):
 
         # Compute and log loss.
         total_loss = 0
-        for loss_fn in self.losses:
+
+        for loss_fn in self.losses[:-1]:
             loss = loss_fn.forward(output, batch, gaussians, self.global_step)
             self.log(f"loss/{loss_fn.name}", loss)
             total_loss = total_loss + loss
+
+        diag_indices = torch.arange(3)
+        diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
+        rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
+        mask_false = ~rep
+        loss =  (diagonal_entries[mask_false]**2).mean()
+
+
+        
+        total_loss = total_loss + loss
+
+
+        loss =( output.original_gaussians.opacities[mask_false]**2).mean()
+        total_loss = total_loss + loss
+        print(f"Mask loss : {loss}")
 
         # distillation
         if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
@@ -410,9 +426,31 @@ class ModelWrapper(LightningModule):
 
                     # Compute and log loss.
                     total_loss = 0
-                    for loss_fn in self.losses:
+                    # for loss_fn in self.losses:
+                    #     loss = loss_fn.forward(output, batch, gaussians, self.global_step)
+                    #     total_loss = total_loss + loss
+
+
+                    for loss_fn in self.losses[:-1]:
                         loss = loss_fn.forward(output, batch, gaussians, self.global_step)
+                        self.log(f"loss/{loss_fn.name}", loss)
                         total_loss = total_loss + loss
+
+                    diag_indices = torch.arange(3)
+                    diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
+                    rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
+                    mask_false = ~rep
+                    loss =  (diagonal_entries[mask_false]**2).mean()
+
+
+                    
+                    total_loss = total_loss + loss
+
+
+                    loss =( output.original_gaussians.opacities[mask_false]**2).mean()
+                    total_loss = total_loss + loss
+                    print(f"Mask loss : {loss}")
+
 
                     total_loss.backward()
                     with torch.no_grad():
