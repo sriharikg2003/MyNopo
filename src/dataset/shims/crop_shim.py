@@ -183,7 +183,7 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         plt.title("Mask")
         plt.axis("off")
 
-        plt.savefig(f"mask_{b}.png", bbox_inches='tight')
+        plt.savefig(f"MASK_{b}.png", bbox_inches='tight')
         plt.close()
 
         batch_masks.append(torch.tensor(mask))  

@@ -16,13 +16,13 @@ model:
     pose_free: true
     intrinsics_embed_loc: encoder
     intrinsics_embed_type: token
-    pretrained_weights: './pretrained_weights/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth'
+    pretrained_weights: '/workspace/raid/cdsbad/splat3r_try/NoPoSplat/pretrained_weights/acid.ckpt'
   decoder:
     make_scale_invariant: true
 
 dataset:
   re10k:
-    roots: [datasets/acid]
+    roots: [/workspace/raid/cdsbad/splat3r_try/realestate_acid_dataset/acid]
     view_sampler:
       warm_up_steps: 9375
 
@@ -33,11 +33,11 @@ optimizer:
 
 data_loader:
   train:
-    batch_size: 16
+    batch_size: 4
 
 trainer:
   max_steps: 18751
-  val_check_interval: 500
+  val_check_interval: 10
 
 checkpointing:
-  every_n_train_steps: 9375
+  every_n_train_steps: 10
