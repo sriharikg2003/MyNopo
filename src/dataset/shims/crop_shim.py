@@ -151,7 +151,7 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         
         mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
 
-        threshold = np.percentile(mean_wavelet_values, 40)
+        threshold = np.percentile(mean_wavelet_values, 60)
         selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
         representation_gaussians = []
         for sp in selected_superpixels:

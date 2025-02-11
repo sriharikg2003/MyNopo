@@ -221,7 +221,6 @@ class ModelWrapper(LightningModule):
 
         # Compute and log loss.
         total_loss = 0
-        breakpoint()
         for loss_fn in self.losses[:-1]:
             loss = loss_fn.forward(output, batch, gaussians, self.global_step)
             self.log(f"loss/{loss_fn.name}", loss)
@@ -231,16 +230,17 @@ class ModelWrapper(LightningModule):
         diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
         rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
         mask_false = ~rep
-        loss =  (diagonal_entries[mask_false]**2).mean()
+        l1 =  (diagonal_entries[mask_false]**2).mean()
 
 
         
-        total_loss = total_loss + loss
+        total_loss = total_loss + l1
 
 
-        loss =( output.original_gaussians.opacities[mask_false]**2).mean()
-        total_loss = total_loss + loss
-        print(f"Mask loss : {loss}")
+        l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
+        total_loss = total_loss + l2
+        print(f"Mask loss : {l1+l2}")
+        self.log(f"loss/mask", l1+l2)
 
         # distillation
         if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
@@ -435,21 +435,21 @@ class ModelWrapper(LightningModule):
                         loss = loss_fn.forward(output, batch, gaussians, self.global_step)
                         self.log(f"loss/{loss_fn.name}", loss)
                         total_loss = total_loss + loss
-
                     diag_indices = torch.arange(3)
                     diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
                     rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
                     mask_false = ~rep
-                    loss =  (diagonal_entries[mask_false]**2).mean()
+                    l1 =  (diagonal_entries[mask_false]**2).mean()
 
 
                     
-                    total_loss = total_loss + loss
+                    total_loss = total_loss + l1
 
 
-                    loss =( output.original_gaussians.opacities[mask_false]**2).mean()
-                    total_loss = total_loss + loss
-                    print(f"Mask loss : {loss}")
+                    l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
+                    total_loss = total_loss + l2
+                    print(f"Mask loss : {l1+l2}")
+                    self.log(f"loss/mask", l1+l2)
 
 
                     total_loss.backward()
@@ -554,6 +554,25 @@ class ModelWrapper(LightningModule):
         self.log(f"val/lpips", lpips)
         ssim = compute_ssim(rgb_gt, rgb_pred).mean()
         self.log(f"val/ssim", ssim)
+
+
+
+        diag_indices = torch.arange(3)
+        diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
+        rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
+        mask_false = ~rep
+        l1 =  (diagonal_entries[mask_false]**2).mean()
+
+
+
+
+
+        l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
+
+        print(f"Mask loss : {l1+l2}")
+        self.log(f"val/mask", l1+l2)
+
+
 
 
         # Construct comparison image.
