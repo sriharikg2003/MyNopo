@@ -302,7 +302,7 @@ def create_gs_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postpr
                                 feature_dim=feature_dim,
                                 last_dim=last_dim,
                                 hooks_idx=[0, l2*2//4, l2*3//4, l2] ,
-                                dim_tokens=[ed, dd, dd, dd, ed, dd, dd, dd],
+                                dim_tokens=[ed, dd, dd, dd],
                                 postprocess=postprocess_func,
                                 depth_mode=net.depth_mode,
                                 conf_mode=net.conf_mode,

@@ -63,18 +63,7 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
 
-        # @MASKED
-        # path_4_ = self.scratch.refinenet4(layers[3 + 4 ])[:, :, :layers[2 + 4 ].shape[2], :layers[2 + 4 ].shape[3]]
-        # path_3_ = self.scratch.refinenet3(path_4_, layers[2 + 4 ])
-        # path_2_ = self.scratch.refinenet2(path_3_, layers[1 + 4 ])
-        # path_1_ = self.scratch.refinenet1(path_2_, layers[0 + 4 ])
-
-        # if ray_embedding is not None:
-        #     ray_embedding = F.interpolate(ray_embedding, size=(path_1.shape[2], path_1.shape[3]), mode='bilinear')
-        #     path_1 = torch.cat([path_1, ray_embedding], dim=1)
-
-
-        # out = self.head(torch.cat((path_1 , path_1_) ,  dim = 1) )
+      
         out = self.head(path_1)
         return out
 
@@ -105,28 +94,6 @@ class PixelwiseTaskWithDPT(nn.Module):
         if self.postprocess:
             out = self.postprocess(out, self.depth_mode, self.conf_mode)
         return out
-# @MASKED
-
-# def create_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postprocess):
-#     """
-#     return PixelwiseTaskWithDPT for given net params
-#     """
-#     assert net.dec_depth > 9
-#     l2 = net.dec_depth
-#     feature_dim = 256
-#     last_dim = feature_dim//2
-#     ed = net.enc_embed_dim
-#     dd = net.dec_embed_dim
-#     return PixelwiseTaskWithDPT(num_channels=out_nchan + has_conf,
-#                                 feature_dim=feature_dim,
-#                                 last_dim=last_dim,
-#                                 hooks_idx=[0, l2*2//4, l2*3//4, l2] + [13, 19, 22, 25],
-#                                 dim_tokens=[ed, dd, dd, dd],
-#                                 postprocess=postprocess_func,
-#                                 depth_mode=net.depth_mode,
-#                                 conf_mode=net.conf_mode,
-#                                 head_type='regression')
-
 
 # @UNMASKED
 def create_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postprocess):
