@@ -331,7 +331,6 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         
         gaussians.scales  = gaussians.scales  * rep.view(b, 2, 65536, 1, 1, 1)  
-        gaussians.rotations =  gaussians.rotations * rep.view(b, 2, 65536, 1, 1, 1)  
         export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path('/workspace/raid/cdsbad/splat3r_try/NoPoSplat/mask.ply'))
         exit()
         # Dump visualizations if needed.
