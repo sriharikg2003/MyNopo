@@ -17,7 +17,7 @@ model:
     intrinsics_embed_loc: encoder
     intrinsics_embed_type: token
 
-    pretrained_weights: pretrained_weights/re10k.ckpt
+    pretrained_weights: /workspace/raid/cdsbad/splat3r_try/NoPoSplat/outputs/exp_re10k/2025-02-10_12-52-10/checkpoints/epoch_0-step_20000.ckpt
   decoder:
     make_scale_invariant: true
 

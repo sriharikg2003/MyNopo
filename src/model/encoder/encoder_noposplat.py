@@ -28,6 +28,79 @@ import cv2
 import random
 import matplotlib.pyplot as plt
 inf = float('inf')
+from pathlib import Path
+
+import numpy as np
+import torch
+from einops import einsum, rearrange
+from jaxtyping import Float
+from plyfile import PlyData, PlyElement
+from scipy.spatial.transform import Rotation as R
+from torch import Tensor
+
+def construct_list_of_attributes(num_rest: int) -> list[str]:
+    attributes = ["x", "y", "z", "nx", "ny", "nz"]
+    for i in range(3):
+        attributes.append(f"f_dc_{i}")
+    for i in range(num_rest):
+        attributes.append(f"f_rest_{i}")
+    attributes.append("opacity")
+    for i in range(3):
+        attributes.append(f"scale_{i}")
+    for i in range(4):
+        attributes.append(f"rot_{i}")
+    return attributes
+
+
+def export_ply(
+    means: Float[Tensor, "gaussian 3"],
+    scales: Float[Tensor, "gaussian 3"],
+    rotations: Float[Tensor, "gaussian 4"],
+    harmonics: Float[Tensor, "gaussian 3 d_sh"],
+    opacities: Float[Tensor, " gaussian"],
+    path: Path,
+    shift_and_scale: bool = False,
+    save_sh_dc_only: bool = True,
+):
+    if shift_and_scale:
+        # Shift the scene so that the median Gaussian is at the origin.
+        means = means - means.median(dim=0).values
+
+        # Rescale the scene so that most Gaussians are within range [-1, 1].
+        scale_factor = means.abs().quantile(0.95, dim=0).max()
+        means = means / scale_factor
+        scales = scales / scale_factor
+
+    # Apply the rotation to the Gaussian rotations.
+    rotations = R.from_quat(rotations.detach().cpu().numpy()).as_matrix()
+    rotations = R.from_matrix(rotations).as_quat()
+    x, y, z, w = rearrange(rotations, "g xyzw -> xyzw g")
+    rotations = np.stack((w, x, y, z), axis=-1)
+
+    # Since current model use SH_degree = 4,
+    # which require large memory to store, we can only save the DC band to save memory.
+    f_dc = harmonics[..., 0]
+    f_rest = harmonics[..., 1:].flatten(start_dim=1)
+
+    dtype_full = [(attribute, "f4") for attribute in construct_list_of_attributes(0 if save_sh_dc_only else f_rest.shape[1])]
+    elements = np.empty(means.shape[0], dtype=dtype_full)
+    attributes = [
+        means.detach().cpu().numpy(),
+        torch.zeros_like(means).detach().cpu().numpy(),
+        f_dc.detach().cpu().contiguous().numpy(),
+        f_rest.detach().cpu().contiguous().numpy(),
+        opacities[..., None].detach().cpu().numpy(),
+        scales.log().detach().cpu().numpy(),
+        rotations,
+    ]
+    if save_sh_dc_only:
+        # remove f_rest from attributes
+        attributes.pop(3)
+
+    attributes = np.concatenate(attributes, axis=1)
+    elements[:] = list(map(tuple, attributes))
+    path.parent.mkdir(exist_ok=True, parents=True)
+    PlyData([PlyElement.describe(elements, "vertex")]).write(path)
 
 
 @dataclass
@@ -159,7 +232,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         self,
         context: dict,
         global_step: int = 0,
-        visualization_dump: Optional[dict] = None,
+        visualization_dump: Optional[dict] = {},
     ) -> Gaussians:
         device = context["image"].device
         b, v, _, h, w = context["image"].shape
@@ -197,13 +270,16 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         pts_all = torch.stack((pts3d1, pts3d2), dim=1)
         pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
 
-
+        
         depths = pts_all[..., -1].unsqueeze(-1)
 
+
+        
         gaussians = torch.stack([GS_res1, GS_res2], dim=1)
         gaussians = rearrange(gaussians, "... (srf c) -> ... srf c", srf=self.cfg.num_surfaces)
         densities = gaussians[..., 0].sigmoid().unsqueeze(-1)
-
+        
+        
         # Convert the features and depths into Gaussians.
         if self.pose_free:
             gaussians = self.gaussian_adapter.forward(
@@ -227,6 +303,37 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 (h, w),
             )
 
+
+
+        rep = context['rep']
+        gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
+        gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
+        gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
+        gaussians_opacities_reshaped = gaussians.opacities.view(b, 2, h, w)
+
+
+
+        mask_expanded_1 = rep.unsqueeze(-1)  
+        mask_expanded_2 = rep.unsqueeze(-1).unsqueeze(-1)  # For tensors with shape [1, 2, 256, 256, 3, 3] and [1, 2, 256, 256, 3, 25]
+
+
+        gaussians_means_reshaped = gaussians_means_reshaped * mask_expanded_1  # [1, 2, 256, 256, 3]
+        gaussians_covariances_reshaped = gaussians_covariances_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 3]
+        gaussians_harmonics_reshaped = gaussians_harmonics_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 25]
+        gaussians_opacities_reshaped = gaussians_opacities_reshaped * rep
+
+
+        gaussians.means = gaussians_means_reshaped.view(b,2*h*w , 3)
+        gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
+        gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
+        gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
+
+
+        
+        gaussians.scales  = gaussians.scales  * rep.view(b, 2, 65536, 1, 1, 1)  
+        gaussians.rotations =  gaussians.rotations * rep.view(b, 2, 65536, 1, 1, 1)  
+        export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path('/workspace/raid/cdsbad/splat3r_try/NoPoSplat/mask.ply'))
+        exit()
         # Dump visualizations if needed.
         if visualization_dump is not None:
             visualization_dump["depth"] = rearrange(
@@ -244,6 +351,10 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             visualization_dump['opacities'] = rearrange(
                 gaussians.opacities, "b v (h w) srf s -> b v h w srf s", h=h, w=w
             )
+
+
+
+
 
         return Gaussians(
             rearrange(
