@@ -305,34 +305,34 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
 
-        rep = context['rep']
-        gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
-        gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
-        gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
-        gaussians_opacities_reshaped = gaussians.opacities.view(b, 2, h, w)
+        # rep = context['rep']
+        # gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
+        # gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
+        # gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
+        # gaussians_opacities_reshaped = gaussians.opacities.view(b, 2, h, w)
 
 
 
-        mask_expanded_1 = rep.unsqueeze(-1)  
-        mask_expanded_2 = rep.unsqueeze(-1).unsqueeze(-1)  # For tensors with shape [1, 2, 256, 256, 3, 3] and [1, 2, 256, 256, 3, 25]
+        # mask_expanded_1 = rep.unsqueeze(-1)  
+        # mask_expanded_2 = rep.unsqueeze(-1).unsqueeze(-1)  # For tensors with shape [1, 2, 256, 256, 3, 3] and [1, 2, 256, 256, 3, 25]
 
 
-        gaussians_means_reshaped = gaussians_means_reshaped * mask_expanded_1  # [1, 2, 256, 256, 3]
-        gaussians_covariances_reshaped = gaussians_covariances_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 3]
-        gaussians_harmonics_reshaped = gaussians_harmonics_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 25]
-        gaussians_opacities_reshaped = gaussians_opacities_reshaped * rep
+        # gaussians_means_reshaped = gaussians_means_reshaped * mask_expanded_1  # [1, 2, 256, 256, 3]
+        # gaussians_covariances_reshaped = gaussians_covariances_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 3]
+        # gaussians_harmonics_reshaped = gaussians_harmonics_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 25]
+        # gaussians_opacities_reshaped = gaussians_opacities_reshaped * rep
 
 
-        gaussians.means = gaussians_means_reshaped.view(b,2*h*w , 3)
-        gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
-        gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
-        gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
+        # gaussians.means = gaussians_means_reshaped.view(b,2*h*w , 3)
+        # gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
+        # gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
+        # gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
 
 
         
-        gaussians.scales  = gaussians.scales  * rep.view(b, 2, 65536, 1, 1, 1)  
-        export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path('/workspace/raid/cdsbad/splat3r_try/NoPoSplat/mask.ply'))
-        exit()
+        # gaussians.scales  = gaussians.scales  * rep.view(b, 2, 65536, 1, 1, 1)  
+        # export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path('/workspace/raid/cdsbad/splat3r_try/NoPoSplat/mask.ply'))
+  
         # Dump visualizations if needed.
         if visualization_dump is not None:
             visualization_dump["depth"] = rearrange(
