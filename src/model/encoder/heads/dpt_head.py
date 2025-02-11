@@ -60,8 +60,8 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
 
         # Fuse layers using refinement stages
         
-        path_5 = self.scratch.refinenet5(layers[4])[:, :, :layers[3].shape[2], :layers[3].shape[3]]
-        path_4 = self.scratch.refinenet5(path_5, layers[3])
+        path_5 = self.scratch.refinenet5(layers[4], layers[3])[:, :, :layers[3].shape[2], :layers[3].shape[3]]
+        path_4 = self.scratch.refinenet5(path_5, path_5)
         path_3 = self.scratch.refinenet3(path_4, layers[2])
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
