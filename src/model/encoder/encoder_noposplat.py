@@ -274,9 +274,8 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                         print(f"Warning: Key {key} not found in sp_wave_values")
             mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
 
-            
-            
-            threshold = np.percentile(mean_wavelet_values, 40)
+             
+            threshold = np.percentile(mean_wavelet_values, 60)
 
             selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
 
@@ -314,7 +313,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
 
-    
+        #breakpoint()
         selected_superpixels_list = []
 
 
@@ -334,7 +333,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             cluster_centers = torch.from_numpy(kmeans.cluster_centers_).to(tensor_data.device)
             cluster_labels = torch.from_numpy(kmeans.labels_).to(tensor_data.device)
 
-
+            
             num_pts1 = pts1_append.shape[0] * pts1_append.shape[1]  # Total points in first image
             pts1_cluster_label = cluster_labels[:num_pts1].reshape(pts1_append.shape[0], pts1_append.shape[1])
             pts2_cluster_label = cluster_labels[num_pts1:].reshape(pts2_append.shape[0], pts2_append.shape[1])
@@ -350,45 +349,46 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                     super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             
             selected_superpixels = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label)
-
+            #breakpoint()
             percentage = 10
             
             representation_gaussians_1 = []
             for sp in selected_superpixels:
                 num_pixels = int(len(super_pixel_coordinates_1[sp]) * percentage / 100)
                 representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
-        
+            #breakpoint()
             mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
             for sp in selected_superpixels:
                 for x, y in super_pixel_coordinates_1[sp]:
                     mask[x, y] = False
-                    context['image'][b,0,:,x,y] = -1
-        
+                    
+            #breakpoint()
             for x, y in representation_gaussians_1:
                 mask[x, y] = True
-        
 
+
+            #breakpoint()
             
-            
-            torchvision.utils.save_image(context['image'][b, 0] , "del.png")
+            # torchvision.utils.save_image(context['image'][b, 0] , "del.png")
             plt.imshow(mask, cmap="gray")
 
 
-            plt.savefig(f"mask_{1}.png", bbox_inches='tight')
+            plt.savefig(f"mask_3d_{1}.png", bbox_inches='tight')
             plt.close()
-        
+            #breakpoint()
             mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][0].device)
 
 
             context['rep'][b][0] = mask_tensor
 
-        
+            #breakpoint()
             super_pixel_coordinates_2 = {i: [] for i in range(pts2_cluster_label.min(), pts2_cluster_label.max() + 1)}
             for i in range(pts2_cluster_label.shape[0]):
                 for j in range(pts2_cluster_label.shape[1]):
                     super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             representation_gaussians_2 = []
-            mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool)  
+            mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool) 
+            selected_superpixels = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label) 
             for sp in selected_superpixels:
                 if sp in super_pixel_coordinates_2:
                     num_pixels = int(len(super_pixel_coordinates_2[sp]) * percentage / 100)
@@ -396,21 +396,22 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 
                 else:
                     print(sp , "******")
+            #breakpoint()
             for sp in selected_superpixels:
                 if sp in super_pixel_coordinates_2:
                     for x, y in super_pixel_coordinates_2[sp]:
                         mask[x, y] = False
-                        context['image'][b,1,:,x,y] = -1
-
+                        
+            #breakpoint()
             for x, y in representation_gaussians_2:
                 mask[x, y] = True
-
+            #breakpoint()
             # import torchvision
-            torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
+            # torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
             plt.imshow(mask, cmap="gray")
 
 
-            plt.savefig(f"mask_{2}.png", bbox_inches='tight')
+            plt.savefig(f"mask_3d_{2}.png", bbox_inches='tight')
             plt.close()
             
 
@@ -421,7 +422,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             context['rep'][b][1] = mask_tensor
 
 
-
+        #breakpoint()
 
 
 
@@ -452,7 +453,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         pts_all = torch.stack((pts3d1, pts3d2), dim=1)
         pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
 
-
+        #breakpoint()
 
         depths = pts_all[..., -1].unsqueeze(-1)
 
