@@ -4,7 +4,7 @@
 # --------------------------------------------------------
 # DPT head for ViTs
 # --------------------------------------------------------
-# References:  
+# References: 
 # https://github.com/isl-org/DPT
 # https://github.com/EPFL-VILAB/MultiMAE/blob/main/multimae/output_adapters.py
 
@@ -72,10 +72,6 @@ def make_scratch(in_shape, out_shape, groups=1, expand=False):
         scratch.layer2_rn,
         scratch.layer3_rn,
         scratch.layer4_rn,
-        scratch.layer1_rn,
-        scratch.layer2_rn,
-        scratch.layer3_rn,
-        scratch.layer4_rn
     ])
 
     return scratch
@@ -300,9 +296,7 @@ class DPTOutputAdapter(nn.Module):
         self.stride_level = stride_level
         self.patch_size = pair(patch_size)
         self.main_tasks = main_tasks
-
         self.hooks = hooks
-        print("SELF HOOKS" , self.hooks)
         self.layer_dims = layer_dims
         self.feature_dim = feature_dim
         self.dim_tokens_enc = dim_tokens_enc * len(self.main_tasks) if dim_tokens_enc is not None else None
@@ -421,12 +415,7 @@ class DPTOutputAdapter(nn.Module):
             self.act_1_postprocess,
             self.act_2_postprocess,
             self.act_3_postprocess,
-            self.act_4_postprocess,
-            self.act_1_postprocess,
-            self.act_2_postprocess,
-            self.act_3_postprocess,
             self.act_4_postprocess
-
         ])
 
     def adapt_tokens(self, encoder_tokens):
@@ -436,16 +425,15 @@ class DPTOutputAdapter(nn.Module):
         x = torch.cat(x, dim=-1)
         return x
 
-
-# @UNMASKED
     def forward(self, encoder_tokens: List[torch.Tensor], image_size):
             #input_info: Dict):
         assert self.dim_tokens_enc is not None, 'Need to call init(dim_tokens_enc) function first'
         H, W = image_size
-
+        
         # Number of patches in height and width
         N_H = H // (self.stride_level * self.P_H)
         N_W = W // (self.stride_level * self.P_W)
+
         # Hook decoder onto 4 layers from specified ViT layers
         layers = [encoder_tokens[hook] for hook in self.hooks]
 
@@ -465,50 +453,7 @@ class DPTOutputAdapter(nn.Module):
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
 
-
-        print("O\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\n")
         # Output head
         out = self.head(path_1)
 
         return out
-
-# @MASKED
-
-    # def forward(self, encoder_tokens: List[torch.Tensor], image_size):
-    #         #input_info: Dict):
-    #     assert self.dim_tokens_enc is not None, 'Need to call init(dim_tokens_enc) function first'
-    #     H, W = image_size
-
-    #     # Number of patches in height and width
-    #     N_H = H // (self.stride_level * self.P_H)
-    #     N_W = W // (self.stride_level * self.P_W)
-    #     # Hook decoder onto 4 layers from specified ViT layers
-    #     layers = [encoder_tokens[hook] for hook in self.hooks]
-
-    #     # Extract only task-relevant tokens and ignore global tokens.
-    #     layers = [self.adapt_tokens(l) for l in layers]
-
-    #     # Reshape tokens to spatial representation
-    #     layers = [rearrange(l, 'b (nh nw) c -> b c nh nw', nh=N_H, nw=N_W) for l in layers]
-
-    #     layers = [self.act_postprocess[idx](l) for idx, l in enumerate(layers)]
-    #     # Project layers to chosen feature dim
-    #     layers = [self.scratch.layer_rn[idx](l) for idx, l in enumerate(layers)]
-
-    #     # Fuse layers using refinement stages
-    #     path_4 = self.scratch.refinenet4(layers[3])
-    #     path_3 = self.scratch.refinenet3(path_4, layers[2])
-    #     path_2 = self.scratch.refinenet2(path_3, layers[1])
-    #     path_1 = self.scratch.refinenet1(path_2, layers[0])
-
-
-    #     path_4_ = self.scratch.refinenet4(layers[3 + 4 ])[:, :, :layers[2 + 4 ].shape[2], :layers[2 + 4 ].shape[3]]
-    #     path_3_ = self.scratch.refinenet3(path_4_, layers[2 + 4 ])
-    #     path_2_ = self.scratch.refinenet2(path_3_, layers[1 + 4 ])
-    #     path_1_ = self.scratch.refinenet1(path_2_, layers[0 + 4 ])
-
-    #     print("O\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\nO\n")
-    #     # Output head
-    #     out = self.head(path_1)
-
-    #     return out

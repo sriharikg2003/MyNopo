@@ -219,68 +219,11 @@ class AsymmetricCroCo(CroCoNet):
         head = getattr(self, f'head{head_num}')
         return head(decout, img_shape)
 
-    # def forward(self,
-    #             context: dict,
-    #             symmetrize_batch=False,
-    #             return_views=False,
-    #             ):
-    #     b, v, _, h, w = context["image"].shape
-    #     device = context["image"].device
-
-    #     view1, view2 = ({'img': context["image"][:, 0]},
-    #                     {'img': context["image"][:, 1]})
-
-    #     # camera embedding in the encoder
-    #     if self.intrinsics_embed_loc == 'encoder' and self.intrinsics_embed_type == 'pixelwise':
-    #         intrinsic_emb = get_intrinsic_embedding(context, degree=self.intrinsics_embed_degree)
-    #         view1['img'] = torch.cat((view1['img'], intrinsic_emb[:, 0]), dim=1)
-    #         view2['img'] = torch.cat((view2['img'], intrinsic_emb[:, 1]), dim=1)
-
-    #     if self.intrinsics_embed_loc == 'encoder' and (self.intrinsics_embed_type == 'token' or self.intrinsics_embed_type == 'linear'):
-    #         intrinsic_embedding = self.intrinsic_encoder(context["intrinsics"].flatten(2))
-    #         view1['intrinsics_embed'] = intrinsic_embedding[:, 0].unsqueeze(1)
-    #         view2['intrinsics_embed'] = intrinsic_embedding[:, 1].unsqueeze(1)
-
-    #     if symmetrize_batch:
-    #         instance_list_view1, instance_list_view2 = [0 for _ in range(b)], [1 for _ in range(b)]
-    #         view1['instance'] = instance_list_view1
-    #         view2['instance'] = instance_list_view2
-    #         view1['idx'] = instance_list_view1
-    #         view2['idx'] = instance_list_view2
-    #         view1, view2 = make_batch_symmetric(view1, view2)
-
-    #         # encode the two images --> B,S,D
-    #         (shape1, shape2), (feat1, feat2), (pos1, pos2) = self._encode_symmetrized(view1, view2, force_asym=False)
-    #     else:
-    #         # encode the two images --> B,S,D
-    #         (shape1, shape2), (feat1, feat2), (pos1, pos2) = self._encode_symmetrized(view1, view2, force_asym=True)
-
-    #     if self.intrinsics_embed_loc == 'decoder':
-    #         # FIXME: downsample is hardcoded to 16
-    #         intrinsic_emb = get_intrinsic_embedding(context, degree=self.intrinsics_embed_degree, downsample=16, merge_hw=True)
-    #         dec1, dec2 = self._decoder(feat1, pos1, feat2, pos2, intrinsic_emb[:, 0], intrinsic_emb[:, 1])
-    #     else:
-    #         dec1, dec2 = self._decoder(feat1, pos1, feat2, pos2)
-
-    #     if self.intrinsics_embed_loc == 'encoder' and self.intrinsics_embed_type == 'token':
-    #         dec1, dec2 = list(dec1), list(dec2)
-    #         for i in range(len(dec1)):
-    #             dec1[i] = dec1[i][:, :-1]
-    #             dec2[i] = dec2[i][:, :-1]
-
-    #     if return_views:
-    #         return dec1, dec2, shape1, shape2, view1, view2
-    #     return dec1, dec2, shape1, shape2
-
-
     def forward(self,
                 context: dict,
                 symmetrize_batch=False,
                 return_views=False,
                 ):
-        
-
-        # Patched Images
         b, v, _, h, w = context["image"].shape
         device = context["image"].device
 
@@ -325,62 +268,9 @@ class AsymmetricCroCo(CroCoNet):
                 dec1[i] = dec1[i][:, :-1]
                 dec2[i] = dec2[i][:, :-1]
 
-
-        # @MASKED
-        return dec1, dec2, shape1, shape2, view1, view2
-        
-        # @UNMASKED
-        # Unpatched Images
-
-        b, v, _, h, w = context["original"].shape
-        device = context["original"].device
-
-        view1__, view2__ = ({'img': context["original"][:, 0]},
-                        {'img': context["original"][:, 1]} )  
-
-        # camera embedding in the encoder
-        if self.intrinsics_embed_loc == 'encoder' and self.intrinsics_embed_type == 'pixelwise':
-            intrinsic_emb = get_intrinsic_embedding(context, degree=self.intrinsics_embed_degree)
-            view1__['img'] = torch.cat((view1__['img'], intrinsic_emb[:, 0]), dim=1)
-            view2__['img'] = torch.cat((view2__['img'], intrinsic_emb[:, 1]), dim=1)
-
-        if self.intrinsics_embed_loc == 'encoder' and (self.intrinsics_embed_type == 'token' or self.intrinsics_embed_type == 'linear'):
-            intrinsic_embedding = self.intrinsic_encoder(context["intrinsics"].flatten(2))
-            view1__['intrinsics_embed'] = intrinsic_embedding[:, 0].unsqueeze(1)
-            view2__['intrinsics_embed'] = intrinsic_embedding[:, 1].unsqueeze(1)
-
-        if symmetrize_batch:
-            instance_list_view1, instance_list_view2 = [0 for _ in range(b)], [1 for _ in range(b)]
-            view1__['instance'] = instance_list_view1
-            view2__['instance'] = instance_list_view2
-            view1__['idx'] = instance_list_view1
-            view2__['idx'] = instance_list_view2
-            view1__, view2__ = make_batch_symmetric(view1__, view2__)
-
-            # encode the two images --> B,S,D
-            (shape1, shape2), (feat1, feat2), (pos1, pos2) = self._encode_symmetrized(view1__, view2__, force_asym=False)
-        else:
-            # encode the two images --> B,S,D
-            (shape1, shape2), (feat1, feat2), (pos1, pos2) = self._encode_symmetrized(view1__, view2__, force_asym=True)
-
-        if self.intrinsics_embed_loc == 'decoder':
-            # FIXME: downsample is hardcoded to 16
-            intrinsic_emb = get_intrinsic_embedding(context, degree=self.intrinsics_embed_degree, downsample=16, merge_hw=True)
-            dec1__, dec2__ = self._decoder(feat1, pos1, feat2, pos2, intrinsic_emb[:, 0], intrinsic_emb[:, 1])
-        else:
-            dec1__, dec2__ = self._decoder(feat1, pos1, feat2, pos2)
-
-        if self.intrinsics_embed_loc == 'encoder' and self.intrinsics_embed_type == 'token':
-            dec1__, dec2__ = list(dec1__), list(dec2__)
-            for i in range(len(dec1__)):
-                dec1__[i] = dec1__[i][:, :-1]
-                dec2__[i] = dec2__[i][:, :-1]
-
-
-
         if return_views:
-            return dec1, dec2,dec1__, dec2__, shape1, shape2, view1, view2 , view1__, view2__
-        return dec1, dec2,dec1__, dec2__, shape1, shape2
+            return dec1, dec2, shape1, shape2, view1, view2
+        return dec1, dec2, shape1, shape2
 
     @property
     def patch_size(self) -> int:

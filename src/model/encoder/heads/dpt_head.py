@@ -35,8 +35,6 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
     def forward(self, encoder_tokens: List[torch.Tensor], image_size=None, ray_embedding=None):
         assert self.dim_tokens_enc is not None, 'Need to call init(dim_tokens_enc) function first'
         # H, W = input_info['image_size']
-
-
         image_size = self.image_size if image_size is None else image_size
         H, W = image_size
         # Number of patches in height and width
@@ -57,14 +55,18 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         layers = [self.scratch.layer_rn[idx](l) for idx, l in enumerate(layers)]
 
         # Fuse layers using refinement stages
-        # @UNMASKED
         path_4 = self.scratch.refinenet4(layers[3])[:, :, :layers[2].shape[2], :layers[2].shape[3]]
         path_3 = self.scratch.refinenet3(path_4, layers[2])
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
 
-      
+        # if ray_embedding is not None:
+        #     ray_embedding = F.interpolate(ray_embedding, size=(path_1.shape[2], path_1.shape[3]), mode='bilinear')
+        #     path_1 = torch.cat([path_1, ray_embedding], dim=1)
+
+        # Output head
         out = self.head(path_1)
+
         return out
 
 
@@ -95,7 +97,7 @@ class PixelwiseTaskWithDPT(nn.Module):
             out = self.postprocess(out, self.depth_mode, self.conf_mode)
         return out
 
-# @UNMASKED
+
 def create_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postprocess):
     """
     return PixelwiseTaskWithDPT for given net params
@@ -109,7 +111,7 @@ def create_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postproce
     return PixelwiseTaskWithDPT(num_channels=out_nchan + has_conf,
                                 feature_dim=feature_dim,
                                 last_dim=last_dim,
-                                hooks_idx=[0, l2*2//4, l2*3//4, l2] ,
+                                hooks_idx=[0, l2*2//4, l2*3//4, l2],
                                 dim_tokens=[ed, dd, dd, dd],
                                 postprocess=postprocess_func,
                                 depth_mode=net.depth_mode,

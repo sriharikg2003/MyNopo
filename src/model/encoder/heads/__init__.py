@@ -12,9 +12,6 @@ from .dpt_head import create_dpt_head
 def head_factory(head_type, output_mode, net, has_conf=False, out_nchan=3):
     """" build a prediction head for the decoder
     """
-
-    print(f"****\nhead_type {head_type} output_mode {output_mode}")
-
     if head_type == 'linear' and output_mode == 'pts3d':
         return LinearPts3d(net, has_conf)
     elif head_type == 'dpt' and output_mode == 'pts3d':

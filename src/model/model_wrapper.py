@@ -42,7 +42,7 @@ from ..visualization.validation_in_3d import render_cameras, render_projections
 from .decoder.decoder import Decoder, DepthRenderingMode
 from .encoder import Encoder
 from .encoder.visualization.encoder_visualizer import EncoderVisualizer
-from torchvision.utils import save_image
+
 
 @dataclass
 class OptimizerCfg:
@@ -83,14 +83,6 @@ class TrajectoryFn(Protocol):
         Float[Tensor, "batch view 3 3"],  # intrinsics
     ]:
         pass
-
-
-import random
-from torchvision.utils import save_image
-
-def mysave(image):
-    save_image(image,'/data2/badrinath/NoPoSplat/del.png')
-
 
 
 class ModelWrapper(LightningModule):
@@ -140,7 +132,6 @@ class ModelWrapper(LightningModule):
 
     def training_step(self, batch, batch_idx):
         # combine batch from different dataloaders
-
         if isinstance(batch, list):
             batch_combined = None
             for batch_per_dl in batch:
@@ -159,44 +150,11 @@ class ModelWrapper(LightningModule):
         batch: BatchedExample = self.data_shim(batch)
         _, _, _, h, w = batch["target"]["image"].shape
 
-
-        # from torchvision.utils import save_image
-
-        # c0  = batch["context"]['image'][0,0,:,:,:]
-        # c1  = batch["context"]['image'][0,1,:,:,:]
-
-        # save_image(c0,'/data2/badrinath/NoPoSplat/c0.png')
-        # save_image(c1,'/data2/badrinath/NoPoSplat/c1.png')
-
-        # image0 = batch["target"]['image'][0,0,:,:,:]
-        # image1 = batch["target"]['image'][0,1,:,:,:]
-        # image2 = batch["target"]['image'][0,2,:,:,:]
-
-        # save_image(image0,'/data2/badrinath/NoPoSplat/t0.png')
-        # save_image(image1,'/data2/badrinath/NoPoSplat/t1.png')
-        # save_image(image2,'/data2/badrinath/NoPoSplat/t2.png')
-
-
         # Run the model.
         visualization_dump = None
         if self.distiller is not None:
             visualization_dump = {}
         gaussians = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
-        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-        representation_gaussians = batch["context"]["rep"]
-        # output = self.decoder.forward(
-        #     gaussians,
-        #     batch["target"]["extrinsics"],
-        #     batch["target"]["intrinsics"],
-        #     batch["target"]["near"],
-        #     batch["target"]["far"],
-        #     (h, w),
-        #     depth_mode=self.train_cfg.depth_mode,
-        #     patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), 
-        #      which_img=(True, True)
-        # )
-
-
         output = self.decoder.forward(
             gaussians,
             batch["target"]["extrinsics"],
@@ -205,11 +163,7 @@ class ModelWrapper(LightningModule):
             batch["target"]["far"],
             (h, w),
             depth_mode=self.train_cfg.depth_mode,
-            rep = representation_gaussians, 
-            which_img=(True, True)
         )
-
-
         target_gt = batch["target"]["image"]
 
         # Compute metrics.
@@ -259,20 +213,12 @@ class ModelWrapper(LightningModule):
 
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
-        
+
         b, v, _, h, w = batch["target"]["image"].shape
         assert b == 1
         if batch_idx % 100 == 0:
             print(f"Test step {batch_idx:0>6}.")
 
-
-        """
-        Patchify
-        """
-        # @MODIFIED VAL
-
-
-        
         # Render Gaussians.
         with self.benchmarker.time("encoder"):
             gaussians = self.encoder(
@@ -285,27 +231,15 @@ class ModelWrapper(LightningModule):
             output = self.test_step_align(batch, gaussians)
         else:
             with self.benchmarker.time("decoder", num_calls=v):
-                # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-                representation_gaussians = batch["context"]["rep"]
-                # output = self.decoder.forward(
-                #     gaussians,
-                #     batch["target"]["extrinsics"],
-                #     batch["target"]["intrinsics"],
-                #     batch["target"]["near"],
-                #     batch["target"]["far"],
-                #     (h, w),
-                #     patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
-                # )
                 output = self.decoder.forward(
-                                    gaussians,
-                                    batch["target"]["extrinsics"],
-                                    batch["target"]["intrinsics"],
-                                    batch["target"]["near"],
-                                    batch["target"]["far"],
-                                    (h, w),
-                                    rep = representation_gaussians, which_img=(True, True)
-                                )
-        # exit()
+                    gaussians,
+                    batch["target"]["extrinsics"],
+                    batch["target"]["intrinsics"],
+                    batch["target"]["near"],
+                    batch["target"]["far"],
+                    (h, w),
+                )
+
         # compute scores
         if self.test_cfg.compute_scores:
             overlap = batch["context"]["overlap"][0]
@@ -316,7 +250,7 @@ class ModelWrapper(LightningModule):
             all_metrics = {
                 f"lpips_ours": compute_lpips(rgb_gt, rgb_pred).mean(),
                 f"ssim_ours": compute_ssim(rgb_gt, rgb_pred).mean(),
-                f"psnr_ours": compute_psnr(rgb_gt, rgb_pred).mean(),    
+                f"psnr_ours": compute_psnr(rgb_gt, rgb_pred).mean(),
             }
             methods = ['ours']
 
@@ -355,9 +289,6 @@ class ModelWrapper(LightningModule):
             param.requires_grad = False
 
         b, v, _, h, w = batch["target"]["image"].shape
-
-
-
         with torch.set_grad_enabled(True):
             cam_rot_delta = nn.Parameter(torch.zeros([b, v, 3], requires_grad=True, device=self.device))
             cam_trans_delta = nn.Parameter(torch.zeros([b, v, 3], requires_grad=True, device=self.device))
@@ -378,24 +309,10 @@ class ModelWrapper(LightningModule):
             pose_optimizer = torch.optim.Adam(opt_params)
 
             extrinsics = batch["target"]["extrinsics"].clone()
-
-            # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-            representation_gaussians = batch["context"]["rep"]
-
             with self.benchmarker.time("optimize"):
                 for i in range(self.test_cfg.pose_align_steps):
                     pose_optimizer.zero_grad()
-                    # output = self.decoder.forward(
-                    #     gaussians,
-                    #     extrinsics,
-                    #     batch["target"]["intrinsics"],
-                    #     batch["target"]["near"],
-                    #     batch["target"]["far"],
-                    #     (h, w),
-                    #     cam_rot_delta=cam_rot_delta,
-                    #     cam_trans_delta=cam_trans_delta , 
-                    #     patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
-                    # )
+
                     output = self.decoder.forward(
                         gaussians,
                         extrinsics,
@@ -404,8 +321,7 @@ class ModelWrapper(LightningModule):
                         batch["target"]["far"],
                         (h, w),
                         cam_rot_delta=cam_rot_delta,
-                        cam_trans_delta=cam_trans_delta , 
-                        rep = representation_gaussians, which_img=(True, True)
+                        cam_trans_delta=cam_trans_delta,
                     )
 
                     # Compute and log loss.
@@ -427,15 +343,6 @@ class ModelWrapper(LightningModule):
                         extrinsics = rearrange(new_extrinsic, "(b v) i j -> b v i j", b=b, v=v)
 
         # Render Gaussians.
-        # output = self.decoder.forward(
-        #     gaussians,
-        #     extrinsics,
-        #     batch["target"]["intrinsics"],
-        #     batch["target"]["near"],
-        #     batch["target"]["far"],
-        #     (h, w),
-        #     patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
-        # )
         output = self.decoder.forward(
             gaussians,
             extrinsics,
@@ -443,7 +350,6 @@ class ModelWrapper(LightningModule):
             batch["target"]["near"],
             batch["target"]["far"],
             (h, w),
-            rep = representation_gaussians, which_img=(True, True)
         )
 
         return output
@@ -459,6 +365,7 @@ class ModelWrapper(LightningModule):
     @rank_zero_only
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         batch: BatchedExample = self.data_shim(batch)
+
         if self.global_rank == 0:
             print(
                 f"validation step {self.global_step}; "
@@ -468,7 +375,6 @@ class ModelWrapper(LightningModule):
 
         # Render Gaussians.
         b, _, _, h, w = batch["target"]["image"].shape
-
         assert b == 1
         visualization_dump = {}
         gaussians = self.encoder(
@@ -476,20 +382,6 @@ class ModelWrapper(LightningModule):
             self.global_step,
             visualization_dump=visualization_dump,
         )
-        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-
-        representation_gaussians = batch["context"]["rep"]
-
-        # output = self.decoder.forward(
-        #     gaussians,
-        #     batch["target"]["extrinsics"],
-        #     batch["target"]["intrinsics"],
-        #     batch["target"]["near"],
-        #     batch["target"]["far"],
-        #     (h, w),
-        #     "depth",
-        #      patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
-        # )
         output = self.decoder.forward(
             gaussians,
             batch["target"]["extrinsics"],
@@ -498,7 +390,6 @@ class ModelWrapper(LightningModule):
             batch["target"]["far"],
             (h, w),
             "depth",
-             rep = representation_gaussians, which_img=(True, True)
         )
         rgb_pred = output.color[0]
         depth_pred = vis_depth_map(output.depth[0])
@@ -516,7 +407,6 @@ class ModelWrapper(LightningModule):
         self.log(f"val/lpips", lpips)
         ssim = compute_ssim(rgb_gt, rgb_pred).mean()
         self.log(f"val/ssim", ssim)
-
 
         # Construct comparison image.
         context_img = inverse_normalize(batch["context"]["image"][0])
@@ -587,7 +477,6 @@ class ModelWrapper(LightningModule):
     @rank_zero_only
     def render_video_wobble(self, batch: BatchedExample) -> None:
         # Two views are needed to get the wobble radius.
-        
         _, v, _, _ = batch["context"]["extrinsics"].shape
         if v != 2:
             return
@@ -694,7 +583,6 @@ class ModelWrapper(LightningModule):
         loop_reverse: bool = True,
     ) -> None:
         # Render probabilistic estimate of scene.
-
         gaussians = self.encoder(batch["context"], self.global_step)
 
         t = torch.linspace(0, 1, num_frames, dtype=torch.float32, device=self.device)
@@ -705,20 +593,11 @@ class ModelWrapper(LightningModule):
 
         _, _, _, h, w = batch["context"]["image"].shape
 
-
-        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-
-        representation_gaussians = batch["context"]["rep"]
-
-
         # TODO: Interpolate near and far planes?
         near = repeat(batch["context"]["near"][:, 0], "b -> b v", v=num_frames)
         far = repeat(batch["context"]["far"][:, 0], "b -> b v", v=num_frames)
-        # output = self.decoder.forward(
-        #     gaussians, extrinsics, intrinsics, near, far, (h, w), "depth",patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
-        # )
         output = self.decoder.forward(
-            gaussians, extrinsics, intrinsics, near, far, (h, w), "depth",rep = representation_gaussians, which_img=(True, True)
+            gaussians, extrinsics, intrinsics, near, far, (h, w), "depth"
         )
         images = [
             vcat(rgb, depth)

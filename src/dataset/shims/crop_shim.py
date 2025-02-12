@@ -6,20 +6,6 @@ from PIL import Image
 from torch import Tensor
 
 from ..types import AnyExample, AnyViews
-import matplotlib.pyplot as plt
-import numpy as np
-import random 
-from skimage.io import imread
-from skimage.color import rgb2gray
-from skimage.filters import sobel
-from skimage.segmentation import felzenszwalb, slic, quickshift, watershed
-from skimage.segmentation import mark_boundaries
-from skimage.util import img_as_float
-
-
-
-# mask_generator = SAM2AutomaticMaskGenerator(sam2)
-# SAM END
 
 
 def rescale(
@@ -87,146 +73,21 @@ def rescale_and_crop(
     images = images.reshape(*batch, c, h_scaled, w_scaled)
 
     return center_crop(images, intrinsics, shape)
-import random
-
-def choose_and_get_patch_coordinates(images):
-    h, w = 256, 256
-    ph, pw = 64, 64
-    max_x = w - pw
-    max_y = h - ph
 
 
-    # x1 = random.randint(0, max_x)
-    # y1 = random.randint(0, max_y)
-
-    x1 , y1 = 100 , 100
-
-    while True:
-        x2 = random.randint(0, max_x)
-        y2 = random.randint(0, max_y)
-        if not (x1 < x2 + pw and x2 < x1 + pw and y1 < y2 + ph and y2 < y1 + ph):
-            break
-
-    row_start1, row_end1 = y1, y1 + ph
-    col_start1, col_end1 = x1, x1 + pw
-
-    row_start2, row_end2 = y2, y2 + ph
-    col_start2, col_end2 = x2, x2 + pw
-
-
-    images[:, :, row_start1 : row_end1 ,   col_start1 : col_end1 ] = 0
-    # images[:, :, row_start2 : row_end2 ,   col_start2 : col_end2 ] = 0
-    return (row_start1, row_end1, col_start1, col_end1), (row_start2, row_end2, col_start2, col_end2)
-
-
-# Same area patches 
-
-import torch
-import logging
-import multiprocessing
-# multiprocessing.set_start_method('spawn', force=True)
-
-
-
-
-def get_superpixel_representation(images):
-
-    img = images.permute(0, 2, 3, 1).cpu().numpy()  
-    batch_masks = []
-    
-    segments_slic = slic(img[0], n_segments=300, compactness=10, sigma=1, start_label=1)
-    
-    super_pixel_coordinates = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
-    
-    for i in range(segments_slic.shape[0]):
-        for j in range(segments_slic.shape[1]):
-            super_pixel_coordinates[segments_slic[i, j]].append((i, j))
-    
-    selected_superpixels = random.sample(list(super_pixel_coordinates.keys()), 150)
-    percentage = 10
-    representation_gaussians = []
-    for sp in selected_superpixels:
-        num_pixels = int(len(super_pixel_coordinates[sp]) * percentage / 100)
-        representation_gaussians.extend(random.sample(super_pixel_coordinates[sp], num_pixels))
-    for b in range(img.shape[0]):  
-        
-        
-        mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)  
-
-
-        # for sp in selected_superpixels:
-        #     for x, y in super_pixel_coordinates[sp]:
-        #         mask[x, y] = False
-        #         img[b][x,y,:] = 0
-
-        # for x, y in representation_gaussians:
-        #     mask[x, y] = True
-
-        # plt.figure(figsize=(6, 3))
-        # plt.subplot(1, 2, 1)
-        # plt.imshow(img[b])
-        # plt.title("Modified Image")
-        # plt.axis("off")
-
-        # # Save the mask
-        # plt.subplot(1, 2, 2)
-        # plt.imshow(mask, cmap="gray")
-        # plt.title("Mask")
-        # plt.axis("off")
-
-        # plt.savefig(f"mask_{b}.png", bbox_inches='tight')
-        # plt.close()
-
-        batch_masks.append(torch.tensor(mask))  # Convert to PyTorch tensor
-    images = torch.tensor(img).permute(0, 3, 1, 2) 
-    return images , torch.stack(batch_masks)  
-
-
-
-def apply_crop_shim_to_views(views: AnyViews, shape: tuple[int, int] , is_context : bool) -> AnyViews:
+def apply_crop_shim_to_views(views: AnyViews, shape: tuple[int, int]) -> AnyViews:
     images, intrinsics = rescale_and_crop(views["image"], views["intrinsics"], shape)
-    old_images = images.clone()
-    if is_context:
-        # Patch
-
-        # (row_start1, row_end1, col_start1, col_end1), (row_start2, row_end2, col_start2, col_end2) = choose_and_get_patch_coordinates(images)
-
-        # return {
-        #     **views,
-        #     "image": images,
-        #     "intrinsics": intrinsics,
-        #     "patch" : (row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2)
-
-        # }
-
-
-        # Super pixels
-        new_images , representation_gaussians = get_superpixel_representation(images)
-
-        return {
-            **views,
-            "image": new_images,
-            "intrinsics": intrinsics,
-            "rep" : representation_gaussians,
-            "original" : old_images
-
-        }
-
-    else:
-
-        return {
-            **views,
-            "image": images,
-            "intrinsics": intrinsics,
-        }
-
-
+    return {
+        **views,
+        "image": images,
+        "intrinsics": intrinsics,
+    }
 
 
 def apply_crop_shim(example: AnyExample, shape: tuple[int, int]) -> AnyExample:
     """Crop images in the example."""
     return {
         **example,
-        "context": apply_crop_shim_to_views(example["context"], shape , is_context=True),
-        "target": apply_crop_shim_to_views(example["target"], shape , is_context=False),
+        "context": apply_crop_shim_to_views(example["context"], shape),
+        "target": apply_crop_shim_to_views(example["target"], shape),
     }

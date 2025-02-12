@@ -41,6 +41,5 @@ class Decoder(nn.Module, ABC, Generic[T]):
         far: Float[Tensor, "batch view"],
         image_shape: tuple[int, int],
         depth_mode: DepthRenderingMode | None = None,
-
     ) -> DecoderOutput:
         pass

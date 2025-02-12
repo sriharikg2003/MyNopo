@@ -94,82 +94,7 @@ from .postprocess import postprocess
 #
 #         return out
 
-# @MASKED
-# class DPTOutputAdapter_fix(DPTOutputAdapter):
-#     """
-#     Adapt croco's DPTOutputAdapter implementation for dust3r:
-#     remove duplicated weigths, and fix forward for dust3r
-#     """
 
-#     def init(self, dim_tokens_enc=768):
-#         super().init(dim_tokens_enc)
-#         # these are duplicated weights
-#         del self.act_1_postprocess
-#         del self.act_2_postprocess
-#         del self.act_3_postprocess
-#         del self.act_4_postprocess
-
-#         self.feat_up = Interpolate(scale_factor=2, mode="bilinear", align_corners=True)
-#         self.input_merger = nn.Sequential(
-#             # nn.Conv2d(256+3+3+1, 256, kernel_size=3, padding=1),
-#             # nn.Conv2d(3+6, 256, 7, 1, 3),
-#             nn.Conv2d(3, 256, 7, 1, 3),
-#             nn.ReLU(),
-#         )
-
-#     def forward(self, encoder_tokens: List[torch.Tensor], depths, imgs, image_size=None, conf=None):
-#         assert self.dim_tokens_enc is not None, 'Need to call init(dim_tokens_enc) function first'
-#         # H, W = input_info['image_size']
-#         image_size = self.image_size if image_size is None else image_size
-#         H, W = image_size
-
-
-#         # Number of patches in height and width
-#         N_H = H // (self.stride_level * self.P_H)
-#         N_W = W // (self.stride_level * self.P_W)
-        
-#         # Hook decoder onto 4 layers from specified ViT layers
-#         layers = [encoder_tokens[hook] for hook in self.hooks]
-
-#         # Extract only task-relevant tokens and ignore global tokens.
-#         layers = [self.adapt_tokens(l) for l in layers]
-
-#         # Reshape tokens to spatial representation
-#         layers = [rearrange(l, 'b (nh nw) c -> b c nh nw', nh=N_H, nw=N_W) for l in layers]
-
-#         layers = [self.act_postprocess[idx](l) for idx, l in enumerate(layers)]
-#         # Project layers to chosen feature dim
-#         layers = [self.scratch.layer_rn[idx](l) for idx, l in enumerate(layers)]
-
-#         # Fuse layers using refinement stages
-#         path_4 = self.scratch.refinenet4(layers[3])[:, :, :layers[2].shape[2], :layers[2].shape[3]]
-#         path_3 = self.scratch.refinenet3(path_4, layers[2])
-#         path_2 = self.scratch.refinenet2(path_3, layers[1])
-#         path_1 = self.scratch.refinenet1(path_2, layers[0])
-
-#         path_4_ = self.scratch.refinenet4(layers[3 + 4 ])[:, :, :layers[2 + 4 ].shape[2], :layers[2 + 4 ].shape[3]]
-#         path_3_ = self.scratch.refinenet3(path_4_, layers[2 + 4 ])
-#         path_2_ = self.scratch.refinenet2(path_3_, layers[1 + 4 ])
-#         path_1_ = self.scratch.refinenet1(path_2_, layers[0 + 4 ])
-
-#         img_patch , img_unpatch = imgs
-#         direct_img_feat = self.input_merger(img_patch)
-#         path_1 = self.feat_up(path_1)
-#         path_1 = path_1 + direct_img_feat
-
-#         direct_img_feat = self.input_merger(img_unpatch)
-#         path_1_ = self.feat_up(path_1_)
-#         path_1_ = path_1_ + direct_img_feat
-
-#         out = self.head(torch.cat((path_1 , path_1_) ,  dim = 1) )
-
-
-#         return out
-
-
-
-
-# @UNMASKED
 class DPTOutputAdapter_fix(DPTOutputAdapter):
     """
     Adapt croco's DPTOutputAdapter implementation for dust3r:
@@ -197,12 +122,10 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         # H, W = input_info['image_size']
         image_size = self.image_size if image_size is None else image_size
         H, W = image_size
-
-
         # Number of patches in height and width
         N_H = H // (self.stride_level * self.P_H)
         N_W = W // (self.stride_level * self.P_W)
-        
+
         # Hook decoder onto 4 layers from specified ViT layers
         layers = [encoder_tokens[hook] for hook in self.hooks]
 
@@ -222,17 +145,14 @@ class DPTOutputAdapter_fix(DPTOutputAdapter):
         path_2 = self.scratch.refinenet2(path_3, layers[1])
         path_1 = self.scratch.refinenet1(path_2, layers[0])
 
-       # @MASKED
-        # img_patch , img_unpatch = imgs
-
-        # @UNMASKED
         direct_img_feat = self.input_merger(imgs)
         path_1 = self.feat_up(path_1)
         path_1 = path_1 + direct_img_feat
 
+        # path_1 = torch.cat([path_1, imgs], dim=1)
 
-        out = self.head(path_1  )
-
+        # Output head
+        out = self.head(path_1)
 
         return out
 
@@ -264,34 +184,11 @@ class PixelwiseTaskWithDPT(nn.Module):
             out = self.postprocess(out, self.depth_mode, self.conf_mode)
         return out
 
-# @MASKED
-# def create_gs_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postprocess):
-#     """
-#     return PixelwiseTaskWithDPT for given net params
-#     """
 
-#     assert net.dec_depth > 9
-#     l2 = net.dec_depth
-#     feature_dim = 256
-#     last_dim = feature_dim//2
-#     ed = net.enc_embed_dim
-#     dd = net.dec_embed_dim
-#     return PixelwiseTaskWithDPT(num_channels=out_nchan + has_conf,
-#                                 feature_dim=feature_dim,
-#                                 last_dim=last_dim,
-#                                 hooks_idx=[0, l2*2//4, l2*3//4, l2] + [13, 19, 22, 25],
-#                                 dim_tokens=[ed, dd, dd, dd, ed, dd, dd, dd],
-#                                 postprocess=postprocess_func,
-#                                 depth_mode=net.depth_mode,
-#                                 conf_mode=net.conf_mode,
-#                                 head_type='gs_params')
-
-#@UNMASKED
 def create_gs_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postprocess):
     """
     return PixelwiseTaskWithDPT for given net params
     """
-
     assert net.dec_depth > 9
     l2 = net.dec_depth
     feature_dim = 256
@@ -301,7 +198,7 @@ def create_gs_dpt_head(net, has_conf=False, out_nchan=3, postprocess_func=postpr
     return PixelwiseTaskWithDPT(num_channels=out_nchan + has_conf,
                                 feature_dim=feature_dim,
                                 last_dim=last_dim,
-                                hooks_idx=[0, l2*2//4, l2*3//4, l2] ,
+                                hooks_idx=[0, l2*2//4, l2*3//4, l2],
                                 dim_tokens=[ed, dd, dd, dd],
                                 postprocess=postprocess_func,
                                 depth_mode=net.depth_mode,
