@@ -177,14 +177,14 @@ cython_debug/
 /slurm_logs
 *.torch
 *.ckpt
+*.out
+*.png
 *.ply
 table.tex
 /baselines
 /test/*
 
-*.out
-*.png
-*.ply
+
 ORIGINAL_RE10K/
 ORIGINAL_ACID/
 RE10K/
