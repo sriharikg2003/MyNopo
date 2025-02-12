@@ -239,7 +239,7 @@ class ModelWrapper(LightningModule):
 
         l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
         total_loss = total_loss + l2
-        print(f"Mask loss : {l1+l2}")
+        # print(f"Mask loss : {l1+l2}")
         self.log(f"loss/mask", l1+l2)
 
         # distillation
@@ -277,16 +277,12 @@ class ModelWrapper(LightningModule):
         batch: BatchedExample = self.data_shim(batch)
         
         b, v, _, h, w = batch["target"]["image"].shape
+
         assert b == 1
         if batch_idx % 100 == 0:
             print(f"Test step {batch_idx:0>6}.")
 
-
-        """
-        Patchify
-        """
-        # @MODIFIED VAL
-
+        
 
         
         # Render Gaussians.
@@ -301,17 +297,8 @@ class ModelWrapper(LightningModule):
             output = self.test_step_align(batch, gaussians)
         else:
             with self.benchmarker.time("decoder", num_calls=v):
-                # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
                 representation_gaussians = batch["context"]["rep"]
-                # output = self.decoder.forward(
-                #     gaussians,
-                #     batch["target"]["extrinsics"],
-                #     batch["target"]["intrinsics"],
-                #     batch["target"]["near"],
-                #     batch["target"]["far"],
-                #     (h, w),
-                #     patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
-                # )
+
                 output = self.decoder.forward(
                                     gaussians,
                                     batch["target"]["extrinsics"],
@@ -342,27 +329,36 @@ class ModelWrapper(LightningModule):
         # Save images.
         (scene,) = batch["scene"]
         name = get_cfg()["wandb"]["name"]
-        path = self.test_cfg.output_path / name
-        if self.test_cfg.save_image:
-            for index, color in zip(batch["target"]["index"][0], output.color[0]):
-                save_image(color, path / scene / f"color/{index:0>6}.png")
+        # path = self.test_cfg.output_path / name
+        folder_name = "60"
+        path = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images"
 
-        if self.test_cfg.save_video:
-            frame_str = "_".join([str(x.item()) for x in batch["context"]["index"][0]])
-            save_video(
-                [a for a in output.color[0]],
-                path / "video" / f"{scene}_frame_{frame_str}.mp4",
-            )
+        path_create = Path(f"{path}") 
+        path_create.mkdir(parents=True, exist_ok=True)
 
-        if self.test_cfg.save_compare:
+
+        # if self.test_cfg.save_image:
+        # for index, color in zip(batch["target"]["index"][0], output.color[0]):
+        #     save_image(color, path / scene / f"color/{index:0>6}.png")
+
+        # if self.test_cfg.save_video:
+        #     frame_str = "_".join([str(x.item()) for x in batch["context"]["index"][0]])
+        #     save_video(
+        #         [a for a in output.color[0]],
+        #         path / "video" / f"{scene}_frame_{frame_str}.mp4",
+        #     )
+
+        # if self.test_cfg.save_compare:
             # Construct comparison image.
-            context_img = inverse_normalize(batch["context"]["image"][0])
-            comparison = hcat(
-                add_label(vcat(*context_img), "Context"),
-                add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
-                add_label(vcat(*rgb_pred), "Target (Prediction)"),
-            )
-            save_image(comparison, path / f"{scene}.png")
+        context_img = inverse_normalize(batch["context"]["image"][0])
+        mask = batch["context"]["rep"][0].unsqueeze(1)
+        masked_img = context_img * mask
+        comparison = hcat(
+            add_label(vcat(*masked_img), "Context"),
+            add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
+            add_label(vcat(*rgb_pred), "Target (Prediction)"),
+        )
+        save_image(comparison, f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images/{scene}.png")
 
     def test_step_align(self, batch, gaussians):
         self.encoder.eval()
@@ -448,7 +444,7 @@ class ModelWrapper(LightningModule):
 
                     l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
                     total_loss = total_loss + l2
-                    print(f"Mask loss : {l1+l2}")
+                    # print(f"Mask loss : {l1+l2}")
                     self.log(f"loss/mask", l1+l2)
 
 
@@ -569,7 +565,7 @@ class ModelWrapper(LightningModule):
 
         l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
 
-        print(f"Mask loss : {l1+l2}")
+        # print(f"Mask loss : {l1+l2}")
         self.log(f"val/mask", l1+l2)
 
 
