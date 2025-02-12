@@ -7,6 +7,9 @@ import torch.nn.functional as F
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
+import uuid
+
+
 
 from .backbone.croco.misc import transpose_to_landscape
 from .heads import head_factory
@@ -21,8 +24,86 @@ from .common.gaussian_adapter import GaussianAdapter, GaussianAdapterCfg, Unifie
 from .encoder import Encoder
 from .visualization.encoder_visualizer_epipolar_cfg import EncoderVisualizerEpipolarCfg
 
-
+import torch
+import numpy as np
+import pywt
+import cv2
+import random
+import matplotlib.pyplot as plt
 inf = float('inf')
+from pathlib import Path
+
+import numpy as np
+import torch
+from einops import einsum, rearrange
+from jaxtyping import Float
+from plyfile import PlyData, PlyElement
+from scipy.spatial.transform import Rotation as R
+from torch import Tensor
+
+def construct_list_of_attributes(num_rest: int) -> list[str]:
+    attributes = ["x", "y", "z", "nx", "ny", "nz"]
+    for i in range(3):
+        attributes.append(f"f_dc_{i}")
+    for i in range(num_rest):
+        attributes.append(f"f_rest_{i}")
+    attributes.append("opacity")
+    for i in range(3):
+        attributes.append(f"scale_{i}")
+    for i in range(4):
+        attributes.append(f"rot_{i}")
+    return attributes
+
+
+def export_ply(
+    means: Float[Tensor, "gaussian 3"],
+    scales: Float[Tensor, "gaussian 3"],
+    rotations: Float[Tensor, "gaussian 4"],
+    harmonics: Float[Tensor, "gaussian 3 d_sh"],
+    opacities: Float[Tensor, " gaussian"],
+    path: Path,
+    shift_and_scale: bool = False,
+    save_sh_dc_only: bool = True,
+):
+    if shift_and_scale:
+        # Shift the scene so that the median Gaussian is at the origin.
+        means = means - means.median(dim=0).values
+
+        # Rescale the scene so that most Gaussians are within range [-1, 1].
+        scale_factor = means.abs().quantile(0.95, dim=0).max()
+        means = means / scale_factor
+        scales = scales / scale_factor
+
+    # Apply the rotation to the Gaussian rotations.
+    rotations = R.from_quat(rotations.detach().cpu().numpy()).as_matrix()
+    rotations = R.from_matrix(rotations).as_quat()
+    x, y, z, w = rearrange(rotations, "g xyzw -> xyzw g")
+    rotations = np.stack((w, x, y, z), axis=-1)
+
+    # Since current model use SH_degree = 4,
+    # which require large memory to store, we can only save the DC band to save memory.
+    f_dc = harmonics[..., 0]
+    f_rest = harmonics[..., 1:].flatten(start_dim=1)
+
+    dtype_full = [(attribute, "f4") for attribute in construct_list_of_attributes(0 if save_sh_dc_only else f_rest.shape[1])]
+    elements = np.empty(means.shape[0], dtype=dtype_full)
+    attributes = [
+        means.detach().cpu().numpy(),
+        torch.zeros_like(means).detach().cpu().numpy(),
+        f_dc.detach().cpu().contiguous().numpy(),
+        f_rest.detach().cpu().contiguous().numpy(),
+        opacities[..., None].detach().cpu().numpy(),
+        scales.log().detach().cpu().numpy(),
+        rotations,
+    ]
+    if save_sh_dc_only:
+        # remove f_rest from attributes
+        attributes.pop(3)
+
+    attributes = np.concatenate(attributes, axis=1)
+    elements[:] = list(map(tuple, attributes))
+    path.parent.mkdir(exist_ok=True, parents=True)
+    PlyData([PlyElement.describe(elements, "vertex")]).write(path)
 
 
 @dataclass
@@ -50,6 +131,15 @@ class EncoderNoPoSplatCfg:
     pretrained_weights: str = ""
     pose_free: bool = True
 
+from pathlib import Path
+
+import numpy as np
+import torch
+from einops import einsum, rearrange
+from jaxtyping import Float
+from plyfile import PlyData, PlyElement
+from scipy.spatial.transform import Rotation as R
+from torch import Tensor
 
 def rearrange_head(feat, patch_size, H, W):
     B = feat.shape[0]
@@ -95,6 +185,8 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         self.head2 = transpose_to_landscape(self.downstream_head2, activate=landscape_only)
 
     def set_gs_params_head(self, cfg, head_type):
+
+
         if head_type == 'linear':
             self.gaussian_param_head = nn.Sequential(
                 nn.ReLU(),
@@ -131,41 +223,45 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         return 0.5 * (1 - (1 - pdf) ** exponent + pdf ** (1 / exponent))
 
     def _downstream_head(self, head_num, decout, img_shape, ray_embedding=None):
+
         B, S, D = decout[-1].shape
         # img_shape = tuple(map(int, img_shape))
         head = getattr(self, f'head{head_num}')
         return head(decout, img_shape, ray_embedding=ray_embedding)
 
+
+
     def forward(
         self,
         context: dict,
         global_step: int = 0,
-        visualization_dump: Optional[dict] = None,
+        visualization_dump: Optional[dict] = {},
     ) -> Gaussians:
         device = context["image"].device
         b, v, _, h, w = context["image"].shape
 
-        # Encode the context images.
-        dec1, dec2, shape1, shape2, view1, view2 = self.backbone(context, return_views=True)
-        with torch.cuda.amp.autocast(enabled=False):
-            res1 = self._downstream_head(1, [tok.float() for tok in dec1], shape1)
-            res2 = self._downstream_head(2, [tok.float() for tok in dec2], shape2)
+        
 
-            # for the 3DGS heads
+
+        with torch.cuda.amp.autocast(enabled=False):
+
+            dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
+            res1 = self._downstream_head(1, [tok.float() for tok in dec1]  , shape1)
+            res2 = self._downstream_head(2, [tok.float() for tok in dec2]   , shape2)
             if self.gs_params_head_type == 'linear':
                 GS_res1 = rearrange_head(self.gaussian_param_head(dec1[-1]), self.patch_size, h, w)
                 GS_res2 = rearrange_head(self.gaussian_param_head2(dec2[-1]), self.patch_size, h, w)
             elif self.gs_params_head_type == 'dpt':
-                GS_res1 = self.gaussian_param_head([tok.float() for tok in dec1], shape1[0].cpu().tolist())
+                GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1]    , shape1[0].cpu().tolist())
                 GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
-                GS_res2 = self.gaussian_param_head2([tok.float() for tok in dec2], shape2[0].cpu().tolist())
+                GS_res2 = self.gaussian_param_head2([tok.float() for tok in dec2] , shape2[0].cpu().tolist())
                 GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
             elif self.gs_params_head_type == 'dpt_gs':
-                GS_res1 = self.gaussian_param_head([tok.float() for tok in dec1], res1['pts3d'].permute(0, 3, 1, 2), view1['img'][:, :3], shape1[0].cpu().tolist())
+                GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1]   , res1['pts3d'].permute(0, 3, 1, 2), view1['img'][:, :3] , shape1[0].cpu().tolist())
                 GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
-                GS_res2 = self.gaussian_param_head2([tok.float() for tok in dec2], res2['pts3d'].permute(0, 3, 1, 2), view2['img'][:, :3], shape2[0].cpu().tolist())
+                GS_res2 = self.gaussian_param_head2(  [tok.float() for tok in dec2]    , res2['pts3d'].permute(0, 3, 1, 2), view2['img'][:, :3], shape2[0].cpu().tolist())
                 GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
-
+        
         pts3d1 = res1['pts3d']
         pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
         pts3d2 = res2['pts3d']
@@ -173,12 +269,16 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         pts_all = torch.stack((pts3d1, pts3d2), dim=1)
         pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
 
+        
         depths = pts_all[..., -1].unsqueeze(-1)
 
+
+        
         gaussians = torch.stack([GS_res1, GS_res2], dim=1)
         gaussians = rearrange(gaussians, "... (srf c) -> ... srf c", srf=self.cfg.num_surfaces)
         densities = gaussians[..., 0].sigmoid().unsqueeze(-1)
-
+        
+        
         # Convert the features and depths into Gaussians.
         if self.pose_free:
             gaussians = self.gaussian_adapter.forward(
@@ -202,6 +302,42 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 (h, w),
             )
 
+
+
+        # rep = context['rep']
+        # gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
+        # gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
+        # gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
+        # gaussians_opacities_reshaped = gaussians.opacities.view(b, 2, h, w)
+
+
+
+        # mask_expanded_1 = rep.unsqueeze(-1)  
+        # mask_expanded_2 = rep.unsqueeze(-1).unsqueeze(-1)  # For tensors with shape [1, 2, 256, 256, 3, 3] and [1, 2, 256, 256, 3, 25]
+
+
+        # gaussians_means_reshaped = gaussians_means_reshaped * mask_expanded_1  # [1, 2, 256, 256, 3]
+        # gaussians_covariances_reshaped = gaussians_covariances_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 3]
+        # gaussians_harmonics_reshaped = gaussians_harmonics_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 25]
+        # gaussians_opacities_reshaped = gaussians_opacities_reshaped * rep
+
+
+        # gaussians.means = gaussians_means_reshaped.view(b,2*h*w , 3)
+        # gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
+        # gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
+        # gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
+
+
+        folder_name = "ORIGINAL_RE10K"
+        # breakpoint()
+        scene = visualization_dump['scene']
+        path_create=Path(f'/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/gaussians')  
+        path_create.mkdir(parents=True, exist_ok=True)
+        # gaussians.scales  = gaussians.scales  * rep.view(b, 2, 65536, 1, 1, 1)  
+
+  
+        export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path(f'/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/gaussians/{scene[0]}.ply'))
+
         # Dump visualizations if needed.
         if visualization_dump is not None:
             visualization_dump["depth"] = rearrange(
@@ -219,6 +355,10 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             visualization_dump['opacities'] = rearrange(
                 gaussians.opacities, "b v (h w) srf s -> b v h w srf s", h=h, w=w
             )
+
+
+
+
 
         return Gaussians(
             rearrange(

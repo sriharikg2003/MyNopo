@@ -151,7 +151,9 @@ class ModelWrapper(LightningModule):
         _, _, _, h, w = batch["target"]["image"].shape
 
         # Run the model.
-        visualization_dump = None
+        visualization_dump = {}
+        visualization_dump['scene']=batch['scene']
+        # breakpoint()
         if self.distiller is not None:
             visualization_dump = {}
         gaussians = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
@@ -218,12 +220,14 @@ class ModelWrapper(LightningModule):
         assert b == 1
         if batch_idx % 100 == 0:
             print(f"Test step {batch_idx:0>6}.")
-
+        visualization_dump = {}
+        visualization_dump['scene']=batch['scene']
         # Render Gaussians.
         with self.benchmarker.time("encoder"):
             gaussians = self.encoder(
                 batch["context"],
                 self.global_step,
+                visualization_dump=visualization_dump
             )
 
         # align the target pose
@@ -241,46 +245,54 @@ class ModelWrapper(LightningModule):
                 )
 
         # compute scores
-        if self.test_cfg.compute_scores:
-            overlap = batch["context"]["overlap"][0]
-            overlap_tag = get_overlap_tag(overlap)
+        # if self.test_cfg.compute_scores:
+        overlap = batch["context"]["overlap"][0]
+        overlap_tag = get_overlap_tag(overlap)
 
-            rgb_pred = output.color[0]
-            rgb_gt = batch["target"]["image"][0]
-            all_metrics = {
-                f"lpips_ours": compute_lpips(rgb_gt, rgb_pred).mean(),
-                f"ssim_ours": compute_ssim(rgb_gt, rgb_pred).mean(),
-                f"psnr_ours": compute_psnr(rgb_gt, rgb_pred).mean(),
-            }
-            methods = ['ours']
+        rgb_pred = output.color[0]
+        rgb_gt = batch["target"]["image"][0]
+        all_metrics = {
+            f"lpips_ours": compute_lpips(rgb_gt, rgb_pred).mean(),
+            f"ssim_ours": compute_ssim(rgb_gt, rgb_pred).mean(),
+            f"psnr_ours": compute_psnr(rgb_gt, rgb_pred).mean(),
+        }
+        methods = ['ours']
 
-            self.log_dict(all_metrics)
-            self.print_preview_metrics(all_metrics, methods, overlap_tag=overlap_tag)
+        self.log_dict(all_metrics)
+        self.print_preview_metrics(all_metrics, methods, overlap_tag=overlap_tag)
 
         # Save images.
         (scene,) = batch["scene"]
         name = get_cfg()["wandb"]["name"]
-        path = self.test_cfg.output_path / name
-        if self.test_cfg.save_image:
-            for index, color in zip(batch["target"]["index"][0], output.color[0]):
-                save_image(color, path / scene / f"color/{index:0>6}.png")
 
-        if self.test_cfg.save_video:
-            frame_str = "_".join([str(x.item()) for x in batch["context"]["index"][0]])
-            save_video(
-                [a for a in output.color[0]],
-                path / "video" / f"{scene}_frame_{frame_str}.mp4",
-            )
+        folder_name = "ORIGINAL_RE10K"
+        path = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images"
 
-        if self.test_cfg.save_compare:
+        path_create = Path(f"{path}") 
+        path_create.mkdir(parents=True, exist_ok=True)
+
+        Path(f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/Scenes/{scene}/color").mkdir(parents=True, exist_ok=True)
+        # if self.test_cfg.save_image:
+        for index, color in zip(batch["target"]["index"][0], output.color[0]):
+            save_image(color, f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/Scenes/{scene}/color/{index:0>6}.png")
+
+        # if self.test_cfg.save_video:
+        #     frame_str = "_".join([str(x.item()) for x in batch["context"]["index"][0]])
+        #     save_video(
+        #         [a for a in output.color[0]],
+        #         path / "video" / f"{scene}_frame_{frame_str}.mp4",
+        #     )
+
+        # if self.test_cfg.save_compare:
             # Construct comparison image.
-            context_img = inverse_normalize(batch["context"]["image"][0])
-            comparison = hcat(
-                add_label(vcat(*context_img), "Context"),
-                add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
-                add_label(vcat(*rgb_pred), "Target (Prediction)"),
-            )
-            save_image(comparison, path / f"{scene}.png")
+        context_img = inverse_normalize(batch["context"]["image"][0])
+        comparison = hcat(
+            add_label(vcat(*context_img), "Context"),
+            add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
+            add_label(vcat(*rgb_pred), "Target (Prediction)"),
+        )
+        save_image(comparison, f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images/{scene}.png")
+
 
     def test_step_align(self, batch, gaussians):
         self.encoder.eval()
@@ -450,17 +462,17 @@ class ModelWrapper(LightningModule):
                     extra_label="",
                 )[0]
             )
-        self.logger.log_image(
-            "projection",
-            [prep_image(add_border(projections))],
-            step=self.global_step,
-        )
+        # self.logger.log_image(
+        #     "projection",
+        #     [prep_image(add_border(projections))],
+        #     step=self.global_step,
+        # )
 
         # Draw cameras.
         cameras = hcat(*render_cameras(batch, 256))
-        self.logger.log_image(
-            "cameras", [prep_image(add_border(cameras))], step=self.global_step
-        )
+        # self.logger.log_image(
+        #     "cameras", [prep_image(add_border(cameras))], step=self.global_step
+        # )
 
         if self.encoder_visualizer is not None:
             for k, image in self.encoder_visualizer.visualize(

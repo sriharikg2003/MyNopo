@@ -184,3 +184,5 @@ table.tex
 
 *.out
 *.png
+*.ply
+ORIGINAL_RE10K/
