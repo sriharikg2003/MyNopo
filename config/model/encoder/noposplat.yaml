@@ -30,4 +30,4 @@ apply_bounds_shim: true
 
 gs_params_head_type: dpt_gs
 pose_free: true
-pretrained_weights: ""
+pretrained_weights: /workspace/raid/cdsbad/splat3r_try/NoPoSplat/outputs/exp_re10k/2025-02-11_12-56-09/checkpoints/epoch_0-step_20000.ckpt

@@ -46,6 +46,7 @@ def cyan(text: str) -> str:
     config_name="main",
 )
 def train(cfg_dict: DictConfig):
+
     cfg = load_typed_root_config(cfg_dict)
     set_cfg(cfg_dict)
 
@@ -92,29 +93,8 @@ def train(cfg_dict: DictConfig):
     checkpoint_path = update_checkpoint_path(cfg.checkpointing.load, cfg.wandb)
 
 
-    # SAM
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-    print(f"using device: {device}")
 
-    from hydra.core.global_hydra import GlobalHydra
 
-    import global_vars
-    # if not GlobalHydra.instance().is_initialized():
-    from sam2.build_sam import build_sam2
-    from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
-         
-    sam2_checkpoint = "//workspace/raid/cdsbad/splat3r_try/sam2/checkpoints/sam2.1_hiera_large.pt"
-    model_cfg = "//workspace/raid/cdsbad/splat3r_try/sam2/sam2/configs/sam2.1/sam2.1_hiera_l.yaml"
-    sam2 = build_sam2(model_cfg, sam2_checkpoint, device=device, apply_postprocessing=False)
-    global_vars.sam2 = sam2
-    global_vars.mask_generator = SAM2AutomaticMaskGenerator(sam2)
-
-    # SAM END
 
 
     # This allows the current step to be shared with the data loader processes.
@@ -285,6 +265,6 @@ def train(cfg_dict: DictConfig):
 
 if __name__ == "__main__":
 
-
+    
     train()
 

@@ -12,7 +12,7 @@ from ..types import Gaussians
 from .cuda_splatting import DepthRenderingMode, render_cuda
 from .decoder import Decoder, DecoderOutput
 import numpy as np
-import open3d as o3d
+
 import numpy as np
 import torch
 import numpy as np

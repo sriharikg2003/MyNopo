@@ -24,12 +24,12 @@ data_loader:
   test:
     num_workers: 4
     persistent_workers: false
-    batch_size: 128
+    batch_size: 1
     seed: 2345
   val:
     num_workers: 1
     persistent_workers: true
-    batch_size: 128
+    batch_size: 1
     seed: 3456
 
 optimizer:
