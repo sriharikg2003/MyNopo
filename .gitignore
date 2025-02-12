@@ -27,6 +27,7 @@ share/python-wheels/
 MANIFEST
 MaskAcid/
 800/
+MaskReal/
 
 
 # PyInstaller
