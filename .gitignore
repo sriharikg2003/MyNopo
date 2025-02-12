@@ -25,6 +25,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+MaskAcid/
+800/
 
 
 # PyInstaller
