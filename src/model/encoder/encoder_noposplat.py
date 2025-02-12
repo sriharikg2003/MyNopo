@@ -1,13 +1,16 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, Optional
-
+import matplotlib.pyplot as plt
+import torchvision
+import numpy as np
+import random
 import torch
 import torch.nn.functional as F
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
-
+from sklearn.cluster import KMeans
 from .backbone.croco.misc import transpose_to_landscape
 from .heads import head_factory
 from ...dataset.shims.bounds_shim import apply_bounds_shim
@@ -244,6 +247,42 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         dec2_mask = context_rep_resized[:, 1:]
 
 
+
+
+        def select_superpixels(img, sp_cord, segments_slic, wavelet='haar', level=1, percentage=10):
+                # Ensure image is on CPU and convert to numpy
+            img = img.cpu().numpy()
+            
+            original_img = img
+
+            if isinstance(segments_slic, torch.Tensor):
+                segments_slic = segments_slic.cpu().numpy()
+            
+            sp_wave_values = {int(i): [] for i in sp_cord.keys()}
+            
+            coeffs = pywt.wavedec2(original_img[:,:,0], wavelet, level=level)
+            _, (x, y, z) = coeffs  # Extract detail coefficients
+            what = (x/(np.mean(x)))  +  y/(np.mean(y))  +  z / (np.mean(z)) 
+            resized_z = cv2.resize(what, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
+            
+            for i in range(segments_slic.shape[0]):
+                for j in range(segments_slic.shape[1]):
+                    key = int(segments_slic[i, j])  # Ensure integer key
+                    if key in sp_wave_values:
+                        sp_wave_values[key].append(abs(resized_z[i, j]))
+                    else:
+                        print(f"Warning: Key {key} not found in sp_wave_values")
+            mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
+
+            
+            
+            threshold = np.percentile(mean_wavelet_values, 40)
+
+            selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
+
+            return selected_superpixels
+
+
         with torch.cuda.amp.autocast(enabled=False):
 
             dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
@@ -270,16 +309,157 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         pts_all = torch.stack((pts3d1, pts3d2), dim=1)
         pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
 
+
+
+
+
+
+    
+        selected_superpixels_list = []
+
+
+        for b in range(context['image'].size(0)):  # Iterate over batch
+
+            pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
+            pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
+
+            tensor_data = torch.cat((pts1_append, pts2_append), dim=0).reshape(-1, 6)  # Use dim=0 instead of dim=1
+
+            if tensor_data.requires_grad:
+                tensor_data = tensor_data.detach()
+
+            kmeans = KMeans(n_clusters=300, random_state=0).fit(tensor_data.cpu().numpy())
+
+            # Convert results back to tensors
+            cluster_centers = torch.from_numpy(kmeans.cluster_centers_).to(tensor_data.device)
+            cluster_labels = torch.from_numpy(kmeans.labels_).to(tensor_data.device)
+
+
+            num_pts1 = pts1_append.shape[0] * pts1_append.shape[1]  # Total points in first image
+            pts1_cluster_label = cluster_labels[:num_pts1].reshape(pts1_append.shape[0], pts1_append.shape[1])
+            pts2_cluster_label = cluster_labels[num_pts1:].reshape(pts2_append.shape[0], pts2_append.shape[1])
+
+
+            # BADRI END
+            
+
+            super_pixel_coordinates_1 = {i: [] for i in range(pts1_cluster_label.min(), pts1_cluster_label.max() + 1)}
+            
+            for i in range(pts1_cluster_label.shape[0]):
+                for j in range(pts1_cluster_label.shape[1]):
+                    super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
+            
+            selected_superpixels = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label)
+
+            percentage = 10
+            
+            representation_gaussians_1 = []
+            for sp in selected_superpixels:
+                num_pixels = int(len(super_pixel_coordinates_1[sp]) * percentage / 100)
+                representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
         
+            mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
+            for sp in selected_superpixels:
+                for x, y in super_pixel_coordinates_1[sp]:
+                    mask[x, y] = False
+                    context['image'][b,0,:,x,y] = -1
+        
+            for x, y in representation_gaussians_1:
+                mask[x, y] = True
+        
+
+            
+            
+            torchvision.utils.save_image(context['image'][b, 0] , "del.png")
+            plt.imshow(mask, cmap="gray")
+
+
+            plt.savefig(f"mask_{1}.png", bbox_inches='tight')
+            plt.close()
+        
+            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][0].device)
+
+
+            context['rep'][b][0] = mask_tensor
+
+        
+            super_pixel_coordinates_2 = {i: [] for i in range(pts2_cluster_label.min(), pts2_cluster_label.max() + 1)}
+            for i in range(pts2_cluster_label.shape[0]):
+                for j in range(pts2_cluster_label.shape[1]):
+                    super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
+            representation_gaussians_2 = []
+            mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool)  
+            for sp in selected_superpixels:
+                if sp in super_pixel_coordinates_2:
+                    num_pixels = int(len(super_pixel_coordinates_2[sp]) * percentage / 100)
+                    representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
+                
+                else:
+                    print(sp , "******")
+            for sp in selected_superpixels:
+                if sp in super_pixel_coordinates_2:
+                    for x, y in super_pixel_coordinates_2[sp]:
+                        mask[x, y] = False
+                        context['image'][b,1,:,x,y] = -1
+
+            for x, y in representation_gaussians_2:
+                mask[x, y] = True
+
+            # import torchvision
+            torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
+            plt.imshow(mask, cmap="gray")
+
+
+            plt.savefig(f"mask_{2}.png", bbox_inches='tight')
+            plt.close()
+            
+
+
+            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][1].device)
+
+            # Assign to context['rep'][0][1]
+            context['rep'][b][1] = mask_tensor
+
+
+
+
+
+
+
+        with torch.cuda.amp.autocast(enabled=False):
+
+            dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
+            res1 = self._downstream_head(1, [tok.float() for tok in dec1]  +  [tok.float() for tok in dec1_mask]  , shape1)
+            res2 = self._downstream_head(2, [tok.float() for tok in dec2] +  [tok.float() for tok in dec2_mask]  , shape2)
+            if self.gs_params_head_type == 'linear':
+                GS_res1 = rearrange_head(self.gaussian_param_head(dec1[-1]), self.patch_size, h, w)
+                GS_res2 = rearrange_head(self.gaussian_param_head2(dec2[-1]), self.patch_size, h, w)
+            elif self.gs_params_head_type == 'dpt':
+                GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1]  +  [tok.float() for tok in dec1_mask]   , shape1[0].cpu().tolist())
+                GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
+                GS_res2 = self.gaussian_param_head2([tok.float() for tok in dec2] +   [tok.float() for tok in dec2_mask], shape2[0].cpu().tolist())
+                GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
+            elif self.gs_params_head_type == 'dpt_gs':
+                GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1] +  [tok.float() for tok in dec1_mask]   , res1['pts3d'].permute(0, 3, 1, 2), view1['img'][:, :3] , shape1[0].cpu().tolist())
+                GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
+                GS_res2 = self.gaussian_param_head2(  [tok.float() for tok in dec2]   + [tok.float() for tok in dec2_mask]   , res2['pts3d'].permute(0, 3, 1, 2), view2['img'][:, :3], shape2[0].cpu().tolist())
+                GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
+        
+        pts3d1 = res1['pts3d']
+        pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
+        pts3d2 = res2['pts3d']
+        pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
+        pts_all = torch.stack((pts3d1, pts3d2), dim=1)
+        pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
+
+
+
         depths = pts_all[..., -1].unsqueeze(-1)
 
-
-        
         gaussians = torch.stack([GS_res1, GS_res2], dim=1)
         gaussians = rearrange(gaussians, "... (srf c) -> ... srf c", srf=self.cfg.num_surfaces)
         densities = gaussians[..., 0].sigmoid().unsqueeze(-1)
-        
-        
+
         # Convert the features and depths into Gaussians.
         if self.pose_free:
             gaussians = self.gaussian_adapter.forward(
@@ -302,6 +482,45 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 rearrange(gaussians[..., 1:], "b v r srf c -> b v r srf () c"),
                 (h, w),
             )
+
+        # Dump visualizations if needed.
+        if visualization_dump is not None:
+            visualization_dump["depth"] = rearrange(
+                depths, "b v (h w) srf s -> b v h w srf s", h=h, w=w
+            )
+            visualization_dump["scales"] = rearrange(
+                gaussians.scales, "b v r srf spp xyz -> b (v r srf spp) xyz"
+            )
+            visualization_dump["rotations"] = rearrange(
+                gaussians.rotations, "b v r srf spp xyzw -> b (v r srf spp) xyzw"
+            )
+            visualization_dump["means"] = rearrange(
+                gaussians.means, "b v (h w) srf spp xyz -> b v h w (srf spp) xyz", h=h, w=w
+            )
+            visualization_dump['opacities'] = rearrange(
+                gaussians.opacities, "b v (h w) srf s -> b v h w srf s", h=h, w=w
+            )
+
+        return Gaussians(
+            rearrange(
+                gaussians.means,
+                "b v r srf spp xyz -> b (v r srf spp) xyz",
+            ),
+            rearrange(
+                gaussians.covariances,
+                "b v r srf spp i j -> b (v r srf spp) i j",
+            ),
+            rearrange(
+                gaussians.harmonics,
+                "b v r srf spp c d_sh -> b (v r srf spp) c d_sh",
+            ),
+            rearrange(
+                gaussians.opacities,
+                "b v r srf spp -> b (v r srf spp)",
+            ),
+        )
+
+
 
 
 
@@ -334,45 +553,6 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         # export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path('/workspace/raid/cdsbad/splat3r_try/NoPoSplat/mask.ply'))
 
         # Dump visualizations if needed.
-        if visualization_dump is not None:
-            visualization_dump["depth"] = rearrange(
-                depths, "b v (h w) srf s -> b v h w srf s", h=h, w=w
-            )
-            visualization_dump["scales"] = rearrange(
-                gaussians.scales, "b v r srf spp xyz -> b (v r srf spp) xyz"
-            )
-            visualization_dump["rotations"] = rearrange(
-                gaussians.rotations, "b v r srf spp xyzw -> b (v r srf spp) xyzw"
-            )
-            visualization_dump["means"] = rearrange(
-                gaussians.means, "b v (h w) srf spp xyz -> b v h w (srf spp) xyz", h=h, w=w
-            )
-            visualization_dump['opacities'] = rearrange(
-                gaussians.opacities, "b v (h w) srf s -> b v h w srf s", h=h, w=w
-            )
-
-
-
-
-
-        return Gaussians(
-            rearrange(
-                gaussians.means,
-                "b v r srf spp xyz -> b (v r srf spp) xyz",
-            ),
-            rearrange(
-                gaussians.covariances,
-                "b v r srf spp i j -> b (v r srf spp) i j",
-            ),
-            rearrange(
-                gaussians.harmonics,
-                "b v r srf spp c d_sh -> b (v r srf spp) c d_sh",
-            ),
-            rearrange(
-                gaussians.opacities,
-                "b v r srf spp -> b (v r srf spp)",
-            ),
-        )
 
     def get_data_shim(self) -> DataShim:
         def data_shim(batch: BatchedExample) -> BatchedExample:
