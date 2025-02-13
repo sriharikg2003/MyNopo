@@ -25,7 +25,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
+MaskAcid/
+800/
+60/
+MaskReal/
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -181,12 +184,3 @@ table.tex
 
 *.out
 *.png
-*.ply
-ORIGINAL_RE10K/
-ORIGINAL_ACID/
-RE10K/
-FCGS/
-MaskAcid/
-800/
-60/
-MaskReal/

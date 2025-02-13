@@ -35,6 +35,7 @@ class DatasetRE10kCfg(DatasetCfgCommon):
     skip_bad_shape: bool
 
 
+
 @dataclass
 class DatasetRE10kCfgWrapper:
     re10k: DatasetRE10kCfg
@@ -73,6 +74,7 @@ class DatasetRE10k(IterableDataset):
         self.to_tensor = tf.ToTensor()
 
         # Collect chunks.
+
         self.chunks = []
         for root in cfg.roots:
             root = root / self.data_stage
@@ -175,9 +177,9 @@ class DatasetRE10k(IterableDataset):
                 else:
                     scale = 1
 
+
                 if self.cfg.relative_pose:
                     extrinsics = camera_normalization(extrinsics[context_indices][0:1], extrinsics)
-
                 example = {
                     "context": {
                         "extrinsics": extrinsics[context_indices],
