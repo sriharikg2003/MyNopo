@@ -330,7 +330,7 @@ class ModelWrapper(LightningModule):
         (scene,) = batch["scene"]
         name = get_cfg()["wandb"]["name"]
         # path = self.test_cfg.output_path / name
-        folder_name = "50_RE10K"
+        folder_name = "30_RE10K"
         path = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images"
 
         path_create = Path(f"{path}") 
