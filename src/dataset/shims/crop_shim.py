@@ -172,19 +172,19 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
             mask[x, y] = True
 
 
-        plt.figure(figsize=(6, 3))
-        plt.subplot(1, 2, 1)
-        plt.imshow(mark_boundaries(original_img, segments_slic))
-        plt.title("Superpixel Boundaries")
-        plt.axis("off")
+        # plt.figure(figsize=(6, 3))
+        # plt.subplot(1, 2, 1)
+        # plt.imshow(mark_boundaries(original_img, segments_slic))
+        # plt.title("Superpixel Boundaries")
+        # plt.axis("off")
 
-        plt.subplot(1, 2, 2)
-        plt.imshow(mask, cmap="gray")
-        plt.title("Mask")
-        plt.axis("off")
+        # plt.subplot(1, 2, 2)
+        # plt.imshow(mask, cmap="gray")
+        # plt.title("Mask")
+        # plt.axis("off")
 
-        plt.savefig(f"mask_{b}.png", bbox_inches='tight')
-        plt.close()
+        # plt.savefig(f"mask_{b}.png", bbox_inches='tight')
+        # plt.close()
 
         batch_masks.append(torch.tensor(mask))  
 

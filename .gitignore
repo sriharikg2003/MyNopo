@@ -184,6 +184,11 @@ table.tex
 *.png
 
 60/
+50_RE10K/
 MaskAcid/
 800/
 LightGaussian/
+MaskReal/
+ORIGINAL_ACID/
+ORIGINAL_RE10K/
+40_RE10K/
