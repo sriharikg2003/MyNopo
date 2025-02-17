@@ -193,3 +193,6 @@ ORIGINAL_ACID/
 ORIGINAL_RE10K/
 40_RE10K/
 30_RE10K/
+src/dataset/shims/sam2.1_hiera_large.pt
+lpips_acid
+del.sh
