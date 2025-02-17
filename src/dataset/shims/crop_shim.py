@@ -162,14 +162,14 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)
 
 
-        for sp in selected_superpixels:
-            for x, y in sp_cord[sp]:
-                mask[x, y] = False
-                # img[b][x, y, :] = 0  
+        # for sp in selected_superpixels:
+        #     for x, y in sp_cord[sp]:
+        #         mask[x, y] = False
+        #         # img[b][x, y, :] = 0  
 
 
-        for x, y in representation_gaussians:
-            mask[x, y] = True
+        # for x, y in representation_gaussians:
+        #     mask[x, y] = True
 
 
         # plt.figure(figsize=(6, 3))
