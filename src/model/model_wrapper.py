@@ -12,7 +12,7 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from lightning.pytorch.utilities import rank_zero_only
 from tabulate import tabulate
 from torch import Tensor, nn, optim
-
+import torch.nn.functional as F
 from ..dataset.data_module import get_data_shim
 from ..dataset.types import BatchedExample
 from ..evaluation.metrics import compute_lpips, compute_psnr, compute_ssim
@@ -211,6 +211,23 @@ class ModelWrapper(LightningModule):
 
 
         target_gt = batch["target"]["image"]
+        batch_size = target_gt.shape[0]
+        num_targets = target_gt.shape[1]
+        channels = target_gt.shape[2]
+
+        device = target_gt.device  # Keep track of the original device (GPU/CPU)
+
+        # Initialize an empty tensor for the resized images
+        resized_target_gt = torch.zeros(batch_size, num_targets, channels, 128, 128, device=device)
+
+        # Resizing each image in the batch and targets
+        for i in range(batch_size):
+            for j in range(num_targets):
+                resized_target_gt[i, j] = F.interpolate(target_gt[i, j].unsqueeze(0).to(device), size=(128, 128), mode='bilinear', align_corners=False).squeeze(0)
+
+        # After resizing, target_gt is updated
+        target_gt = resized_target_gt
+
 
         # Compute metrics.
         psnr_probabilistic = compute_psnr(
@@ -316,6 +333,7 @@ class ModelWrapper(LightningModule):
 
             rgb_pred = output.color[0]
             rgb_gt = batch["target"]["image"][0]
+            rgb_gt = F.interpolate(rgb_gt, size=(128, 128), mode='bilinear', align_corners=False)
             all_metrics = {
                 f"lpips_ours": compute_lpips(rgb_gt, rgb_pred).mean(),
                 f"ssim_ours": compute_ssim(rgb_gt, rgb_pred).mean(),
@@ -544,6 +562,7 @@ class ModelWrapper(LightningModule):
 
         # Compute validation metrics.
         rgb_gt = batch["target"]["image"][0]
+        rgb_gt = F.interpolate(rgb_gt, size=(128, 128), mode='bilinear', align_corners=False)
         psnr = compute_psnr(rgb_gt, rgb_pred).mean()
         self.log(f"val/psnr", psnr)
         lpips = compute_lpips(rgb_gt, rgb_pred).mean()

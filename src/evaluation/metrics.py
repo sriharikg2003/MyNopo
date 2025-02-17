@@ -10,11 +10,12 @@ from torch import Tensor
 
 @torch.no_grad()
 def compute_psnr(
-    ground_truth: Float[Tensor, "batch channel height width"],
-    predicted: Float[Tensor, "batch channel height width"],
+    ground_truth: Float[Tensor, "batch channel 128 128"],
+    predicted: Float[Tensor, "batch channel 128 128"],
 ) -> Float[Tensor, " batch"]:
     ground_truth = ground_truth.clip(min=0, max=1)
     predicted = predicted.clip(min=0, max=1)
+
     mse = reduce((ground_truth - predicted) ** 2, "b c h w -> b", "mean")
     return -10 * mse.log10()
 
@@ -26,8 +27,8 @@ def get_lpips(device: torch.device) -> LPIPS:
 
 @torch.no_grad()
 def compute_lpips(
-    ground_truth: Float[Tensor, "batch channel height width"],
-    predicted: Float[Tensor, "batch channel height width"],
+    ground_truth: Float[Tensor, "batch channel 128 128"],
+    predicted: Float[Tensor, "batch channel 128 128"],
 ) -> Float[Tensor, " batch"]:
     value = get_lpips(predicted.device).forward(ground_truth, predicted, normalize=True)
     return value[:, 0, 0, 0]
@@ -35,8 +36,8 @@ def compute_lpips(
 
 @torch.no_grad()
 def compute_ssim(
-    ground_truth: Float[Tensor, "batch channel height width"],
-    predicted: Float[Tensor, "batch channel height width"],
+    ground_truth: Float[Tensor, "batch channel 128 128"],
+    predicted: Float[Tensor, "batch channel 128 128"],
 ) -> Float[Tensor, " batch"]:
     ssim = [
         structural_similarity(

@@ -98,9 +98,9 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
         gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
         gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
-        breakpoint()
-        h=h/2 
-        w=w/2
+
+        h=int(h/2) 
+        w=int(w/2)
 
         color, depth = render_cuda(
             rearrange(extrinsics, "b v i j -> (b v) i j"),
