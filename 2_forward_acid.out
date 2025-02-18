@@ -13905,3 +13905,263 @@ train step 1860; scene = ['1db6b9866b9ee672', '2da6ebb9f24246b6', '9c385fdbc683d
 [2025-02-18 10:02:06,737][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
   with torch.cuda.amp.autocast(enabled=False):
 
+validation step 1870; scene = ['7e3e7f53eecb9a79']; context = [[40, 68]]
+[2025-02-18 10:02:27,922][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:27,997][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:28,748][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:29,091][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:29,722][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:29,815][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+train step 1870; scene = ['54b3bb363067f513', '319637196100eabd', '8c14aebee3ef392f', 'd55c3baea00d8b2d']; context = [[13, 46], [311, 347], [81, 110], [8, 42]]; loss = 0.029874
+[2025-02-18 10:02:30,394][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:30,477][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:31,089][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:31,172][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:31,796][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:31,883][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:32,506][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:32,595][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:33,210][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:33,296][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:33,849][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:33,940][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:34,593][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:34,683][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:35,340][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:35,429][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:36,066][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:36,157][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+validation step 1880; scene = ['92e50fe30d9aab03']; context = [[794, 824]]
+[2025-02-18 10:02:56,396][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:56,471][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:57,241][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:57,567][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:58,127][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:58,217][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+train step 1880; scene = ['d0412ce0a201ae32', 'e24932183e179f82', 'bbf2c431f7bfc57f', '60eff39580e563c7']; context = [[3, 31], [4, 35], [7, 37], [18, 49]]; loss = 0.141400
+[2025-02-18 10:02:58,806][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:58,894][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:59,537][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:02:59,625][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:00,261][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:00,349][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:00,983][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:01,071][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:01,710][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:01,799][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:02,435][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:02,522][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:03,124][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:03,211][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:03,841][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:03,928][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:04,536][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:04,622][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+validation step 1890; scene = ['b46aab2bc61a59fb']; context = [[5, 38]]
+[2025-02-18 10:03:25,320][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:25,392][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:26,176][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:26,511][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:27,058][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:27,150][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+train step 1890; scene = ['76ac66d7e5c2003f', '2c0b2e668ba9af1c', '50ad1bba6f2c3c00', 'ad3a22d4bf691ef3']; context = [[8, 40], [12, 42], [1, 31], [3, 36]]; loss = 0.033418
+[2025-02-18 10:03:27,778][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:27,867][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:28,569][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:28,668][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:29,337][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:29,423][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:30,100][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:30,187][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:30,853][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:30,940][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:31,597][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:31,682][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:32,325][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:32,414][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:33,058][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:33,150][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:33,759][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:33,851][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+validation step 1900; scene = ['4d61b2699567a4b2']; context = [[23, 60]]
+[2025-02-18 10:03:51,940][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:52,015][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:52,734][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:53,072][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:53,657][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:53,751][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+train step 1900; scene = ['d8e6428ad2ddde42', '42759983279139a8', '73e7a07f690ff5b0', '8793ba95de7c068c']; context = [[227, 262], [13, 44], [122, 155], [9, 43]]; loss = 0.019566
+[2025-02-18 10:03:54,340][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:54,430][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:55,132][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:55,225][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:55,902][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder/encoder_noposplat.py:247: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
+[2025-02-18 10:03:55,991][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with torch.cuda.amp.autocast(enabled=False):
+
