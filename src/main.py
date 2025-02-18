@@ -33,6 +33,7 @@ with install_import_hook(
     from src.misc.wandb_tools import update_checkpoint_path
     from src.model.decoder import get_decoder
     from src.model.encoder import get_encoder
+    from src.model.encoder_ import get_encoder_
     from src.model.model_wrapper import ModelWrapper
 
 
@@ -103,19 +104,7 @@ def train(cfg_dict: DictConfig):
 
     from hydra.core.global_hydra import GlobalHydra
 
-    import global_vars
-    # if not GlobalHydra.instance().is_initialized():
-    from sam2.build_sam import build_sam2
-    from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
-         
-    sam2_checkpoint = "//workspace/raid/cdsbad/splat3r_try/sam2/checkpoints/sam2.1_hiera_large.pt"
-    model_cfg = "//workspace/raid/cdsbad/splat3r_try/sam2/sam2/configs/sam2.1/sam2.1_hiera_l.yaml"
-    sam2 = build_sam2(model_cfg, sam2_checkpoint, device=device, apply_postprocessing=False)
-    global_vars.sam2 = sam2
-    global_vars.mask_generator = SAM2AutomaticMaskGenerator(sam2)
-
-    # SAM END
-
+  
 
     # This allows the current step to be shared with the data loader processes.
 
@@ -145,6 +134,7 @@ def train(cfg_dict: DictConfig):
     torch.manual_seed(cfg_dict.seed + trainer.global_rank)
 
     encoder, encoder_visualizer = get_encoder(cfg.model.encoder)
+    encoder_, encoder_visualizer_ = get_encoder_(cfg.model.encoder_)
 
     distiller = None
     if cfg.train.distiller:
@@ -176,6 +166,8 @@ def train(cfg_dict: DictConfig):
     if cfg.model.encoder.pretrained_weights and cfg.mode == "train":
         weight_path = cfg.model.encoder.pretrained_weights
         ckpt_weights = torch.load(weight_path, map_location='cpu')
+
+        ckpt_weights_ = torch.load(weight_path, map_location='cpu')
 
         excluded_keys = [
             "downstream_head1.dpt.head.0.weight",
@@ -218,6 +210,15 @@ def train(cfg_dict: DictConfig):
             missing_keys, unexpected_keys = encoder.load_state_dict(new_ckpt_weights, strict=False)
 
 
+
+            # Original Noposplat
+
+            ckpt_weights_ = ckpt_weights_['model']
+            ckpt_weights_ = checkpoint_filter_fn(ckpt_weights_, encoder_)
+            
+            model_state_dict_ = encoder_.state_dict()
+                     
+            encoder_.load_state_dict(model_state_dict_, strict=False)
             
         elif 'state_dict' in ckpt_weights:
             import torch.nn.init as init
@@ -250,6 +251,19 @@ def train(cfg_dict: DictConfig):
             print("Model weights loaded with shape mismatches initialized.")
 
 
+
+
+            # Original Noposplat Model Checkpoint
+            ckpt_weights_ = ckpt_weights_['state_dict']
+
+            ckpt_weights_ = {k[8:]: v for k, v in ckpt_weights_.items() if k.startswith('encoder_.')}
+
+
+            model_state_ = encoder_.state_dict()
+
+          
+            encoder_.load_state_dict(model_state_, strict=False)
+
         else:
             raise ValueError(f"Invalid checkpoint format: {weight_path}")
             
@@ -258,6 +272,7 @@ def train(cfg_dict: DictConfig):
         cfg.test,
         cfg.train,
         encoder,
+        encoder_,
         encoder_visualizer,
         get_decoder(cfg.model.decoder),
         get_losses(cfg.loss),
@@ -271,7 +286,7 @@ def train(cfg_dict: DictConfig):
         global_rank=trainer.global_rank,
     )
     if cfg.mode == "train":
-        trainer.fit(model_wrapper, datamodule=data_module, ckpt_path=checkpoint_path)
+        trainer.fit(model_wrapper, datamodule=data_module, ckpt_path=checkpoint_path )
     else:
 
         trainer.test(

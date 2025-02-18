@@ -41,6 +41,7 @@ from ..visualization.layout import add_border, hcat, vcat
 from ..visualization.validation_in_3d import render_cameras, render_projections
 from .decoder.decoder import Decoder, DepthRenderingMode
 from .encoder import Encoder
+from .encoder_ import Encoder_
 from .encoder.visualization.encoder_visualizer import EncoderVisualizer
 from torchvision.utils import save_image
 
@@ -96,6 +97,7 @@ def mysave(image):
 class ModelWrapper(LightningModule):
     logger: Optional[WandbLogger]
     encoder: nn.Module
+    encoder_ : nn.Module
     encoder_visualizer: Optional[EncoderVisualizer]
     decoder: Decoder
     losses: nn.ModuleList
@@ -110,6 +112,7 @@ class ModelWrapper(LightningModule):
         test_cfg: TestCfg,
         train_cfg: TrainCfg,
         encoder: Encoder,
+        encoder_: Encoder_,
         encoder_visualizer: Optional[EncoderVisualizer],
         decoder: Decoder,
         losses: list[Loss],
@@ -124,6 +127,7 @@ class ModelWrapper(LightningModule):
 
         # Set up the model.
         self.encoder = encoder
+        self.encoder_ = encoder_
         self.encoder_visualizer = encoder_visualizer
         self.decoder = decoder
         self.data_shim = get_data_shim(self.encoder)
