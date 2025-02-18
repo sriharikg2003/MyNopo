@@ -73,31 +73,33 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
             opacities=gaussians.opacities.clone().detach()
         )
 
+        original = kwargs["original"]
         kwargs = {k: v for k, v in kwargs.items() if k in ["rep"]} 
         rep = kwargs["rep"] 
+
+        if not original:
         
-        
-        gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
-        gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
-        gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
-        gaussians_opacities_reshaped = gaussians.opacities.view(b, 2, h, w)
+            gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
+            gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
+            gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
+            gaussians_opacities_reshaped = gaussians.opacities.view(b, 2, h, w)
 
 
 
-        mask_expanded_1 = rep.unsqueeze(-1)  
-        mask_expanded_2 = rep.unsqueeze(-1).unsqueeze(-1)  # For tensors with shape [1, 2, 256, 256, 3, 3] and [1, 2, 256, 256, 3, 25]
+            mask_expanded_1 = rep.unsqueeze(-1)  
+            mask_expanded_2 = rep.unsqueeze(-1).unsqueeze(-1)  # For tensors with shape [1, 2, 256, 256, 3, 3] and [1, 2, 256, 256, 3, 25]
 
 
-        gaussians_means_reshaped = gaussians_means_reshaped * mask_expanded_1  # [1, 2, 256, 256, 3]
-        gaussians_covariances_reshaped = gaussians_covariances_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 3]
-        gaussians_harmonics_reshaped = gaussians_harmonics_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 25]
-        gaussians_opacities_reshaped = gaussians_opacities_reshaped * rep
+            gaussians_means_reshaped = gaussians_means_reshaped * mask_expanded_1  # [1, 2, 256, 256, 3]
+            gaussians_covariances_reshaped = gaussians_covariances_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 3]
+            gaussians_harmonics_reshaped = gaussians_harmonics_reshaped * mask_expanded_2  # [1, 2, 256, 256, 3, 25]
+            gaussians_opacities_reshaped = gaussians_opacities_reshaped * rep
 
 
-        gaussians.means = gaussians_means_reshaped.view(b,2*h*w , 3)
-        gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
-        gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
-        gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
+            gaussians.means = gaussians_means_reshaped.view(b,2*h*w , 3)
+            gaussians.covariances = gaussians_covariances_reshaped.view(b,2*h*w , 3,3)
+            gaussians.harmonics = gaussians_harmonics_reshaped.view(b,2*h*w , 3,-1)
+            gaussians.opacities = gaussians_opacities_reshaped.view(b,2*h*w)
 
 
         color, depth = render_cuda(

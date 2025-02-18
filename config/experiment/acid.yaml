@@ -42,7 +42,7 @@ data_loader:
     batch_size: 4
 
 trainer:
-  max_steps: 100_001
+  max_steps: 200_001
   val_check_interval: 10
 
 checkpointing:

@@ -14,7 +14,7 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf
 import random
 
-
+import torch.nn.init as init
 
 from src.misc.weight_modify import checkpoint_filter_fn
 from src.model.distiller import get_distiller
@@ -163,11 +163,11 @@ def train(cfg_dict: DictConfig):
     #     else:
     #         raise ValueError(f"Invalid checkpoint format: {weight_path}")
     #     exit()
+
     if cfg.model.encoder.pretrained_weights and cfg.mode == "train":
         weight_path = cfg.model.encoder.pretrained_weights
         ckpt_weights = torch.load(weight_path, map_location='cpu')
 
-        ckpt_weights_ = torch.load(weight_path, map_location='cpu')
 
         excluded_keys = [
             "downstream_head1.dpt.head.0.weight",
@@ -183,6 +183,7 @@ def train(cfg_dict: DictConfig):
 
 
         if 'model' in ckpt_weights:
+
             print('model load')
             
             ckpt_weights = ckpt_weights['model']
@@ -221,48 +222,60 @@ def train(cfg_dict: DictConfig):
             encoder_.load_state_dict(model_state_dict_, strict=False)
             
         elif 'state_dict' in ckpt_weights:
-            import torch.nn.init as init
 
-            print('state_dict load')
+            print('Loading state_dict')
 
-         
-
+            # Load the checkpoint weights
             ckpt_weights = ckpt_weights['state_dict']
 
-            ckpt_weights = {k[8:]: v for k, v in ckpt_weights.items() if k.startswith('encoder.')}
+            # Separate the weights for encoder_ and encoder
+            encoder_Weights = {k[8:]: v for k, v in ckpt_weights.items() if k.startswith('encoder.')}
 
-            model_state = encoder.state_dict()
-
-            for k, v in ckpt_weights.items():
-                if k in model_state:
-                    if model_state[k].shape == v.shape:
-                        model_state[k].copy_(v)  
-                    else:
-                        print(f"Initializing {k} due to shape mismatch: {v.shape} vs {model_state[k].shape}")
-                        param = model_state[k]
-                        if param.dim() > 1:  
-                            init.kaiming_normal_(param)  
-                        else: 
-                            init.zeros_(param)
-
-           
-            encoder.load_state_dict(model_state, strict=False)
-
-            print("Model weights loaded with shape mismatches initialized.")
-
-
-
-
-            # Original Noposplat Model Checkpoint
-            ckpt_weights_ = ckpt_weights_['state_dict']
-
-            ckpt_weights_ = {k[8:]: v for k, v in ckpt_weights_.items() if k.startswith('encoder.')}
-
-
+            
             model_state_ = encoder_.state_dict()
 
-          
+            # Loop over the encoder_ weights and load them
+            for k, v in encoder_Weights.items():
+                if k in model_state_:
+                    if model_state_[k].shape == v.shape:
+                        model_state_[k].copy_(v)  # Directly copy weights if shape matches
+                    else:
+                        print(f"Initializing {k} due to shape mismatch: {v.shape} vs {model_state_[k].shape}")
+                        exit()
+                else:
+                    print(f"Skipping {k} because it is not found in encoder_ model state")
+
+            # Apply the state dict to encoder_ model
             encoder_.load_state_dict(model_state_, strict=False)
+
+            # Now for encoder (not encoder_)
+            encoder_Weights = {k[8:]: v for k, v in ckpt_weights.items() if k.startswith('encoder.')}
+            model_state = encoder.state_dict()
+
+            # Loop over the encoder weights and load them
+            for k, v in encoder_Weights.items():
+                if k in model_state:
+                    if model_state[k].shape == v.shape:
+                        model_state[k].copy_(v)  # Directly copy weights if shape matches
+                    else:
+                        print(f"Initializing {k} due to shape mismatch: {v.shape} vs {model_state[k].shape}")
+                        print("********")
+                        param = model_state[k]
+                        if param.dim() > 1:  
+                            init.kaiming_normal_(param)  # Initialize conv/linear layers
+                        else:
+                            init.zeros_(param)  # Initialize biases to zero
+                else:
+                    print(f"Skipping {k} because it is not found in encoder model state")
+
+            # Apply the state dict to encoder model
+            encoder.load_state_dict(model_state, strict=False)
+
+
+
+
+
+
 
         else:
             raise ValueError(f"Invalid checkpoint format: {weight_path}")

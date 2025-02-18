@@ -1,5 +1,6 @@
 defaults:
   - model/encoder: noposplat
+  - model/encoder_: noposplat
   - model/decoder: splatting_cuda
   - loss: [mse]
 

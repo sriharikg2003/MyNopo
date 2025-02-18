@@ -12,7 +12,7 @@ from lightning.pytorch.loggers.wandb import WandbLogger
 from lightning.pytorch.utilities import rank_zero_only
 from tabulate import tabulate
 from torch import Tensor, nn, optim
-
+import torchvision
 from ..dataset.data_module import get_data_shim
 from ..dataset.types import BatchedExample
 from ..evaluation.metrics import compute_lpips, compute_psnr, compute_ssim
@@ -186,9 +186,27 @@ class ModelWrapper(LightningModule):
         if self.distiller is not None:
             visualization_dump = {}
         gaussians = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
-        
-        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
         representation_gaussians = batch["context"]["rep"]
+        with torch.no_grad():
+            gaussians_original = self.encoder_(batch["context"] , self.global_step)
+
+            output_ = self.decoder.forward(
+                    gaussians_original,
+                    batch["target"]["extrinsics"],
+                    batch["target"]["intrinsics"],
+                    batch["target"]["near"],
+                    batch["target"]["far"],
+                    (h, w),
+                    depth_mode=self.train_cfg.depth_mode,
+                    rep = representation_gaussians, 
+                    which_img=(True, True),
+                    original= True
+                )
+
+
+        torchvision.utils.save_image(output_.color[0] , f"orig.png")
+        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
+        
         # output = self.decoder.forward(
         #     gaussians,
         #     batch["target"]["extrinsics"],
@@ -201,6 +219,8 @@ class ModelWrapper(LightningModule):
         #      which_img=(True, True)
         # )
 
+        
+  
 
         output = self.decoder.forward(
             gaussians,
@@ -211,8 +231,11 @@ class ModelWrapper(LightningModule):
             (h, w),
             depth_mode=self.train_cfg.depth_mode,
             rep = representation_gaussians, 
-            which_img=(True, True)
+            which_img=(True, True),
+            original= False
         )
+
+        torchvision.utils.save_image(output.color[0] , f"new.png")
 
 
         target_gt = batch["target"]["image"]
@@ -231,14 +254,14 @@ class ModelWrapper(LightningModule):
             self.log(f"loss/{loss_fn.name}", loss)
             total_loss = total_loss + loss
 
+
+        # Loss for Masked regions
         diag_indices = torch.arange(3)
         diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
         rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
         mask_false = ~rep
         l1 =  (diagonal_entries[mask_false]**2).mean()
-
-
-        
+   
         total_loss = total_loss + l1
 
 
@@ -246,6 +269,34 @@ class ModelWrapper(LightningModule):
         total_loss = total_loss + l2
         # print(f"Mask loss : {l1+l2}")
         self.log(f"loss/mask", l1+l2)
+
+
+
+
+        # Loss for Un Masked regions
+
+
+        rep = batch['context']['rep'].view(gaussians.covariances.shape[0], -1)
+        covariances_loss = ((gaussians_original.covariances[rep] - gaussians.covariances[rep]) ** 2).mean()
+        self.log("loss/covariances_loss", covariances_loss)
+
+        rep = batch['context']['rep'].view(gaussians.means.shape[0], -1)
+        means_loss = ((gaussians_original.means[rep] - gaussians.means[rep]) ** 2).mean()
+        self.log("loss/means_loss", means_loss)
+
+        rep = batch['context']['rep'].view(gaussians.harmonics.shape[0], -1)
+        harmonics_loss = ((gaussians_original.harmonics[rep] - gaussians.harmonics[rep]) ** 2).mean()
+        self.log("loss/harmonics_loss", harmonics_loss)
+
+        rep = batch['context']['rep'].view(gaussians.opacities.shape[0], -1)
+        opacities_loss = ((gaussians_original.opacities[rep] - gaussians.opacities[rep]) ** 2).mean()
+        self.log("loss/opacities_loss", opacities_loss)
+
+        
+        total_loss = total_loss +  covariances_loss + means_loss + harmonics_loss + opacities_loss
+
+
+        total_loss*=0.001
 
         # distillation
         if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
@@ -311,7 +362,7 @@ class ModelWrapper(LightningModule):
                                     batch["target"]["near"],
                                     batch["target"]["far"],
                                     (h, w),
-                                    rep = representation_gaussians, which_img=(True, True)
+                                    rep = representation_gaussians, which_img=(True, True) , original=False
                                 )
         # exit()
         # compute scores
@@ -422,7 +473,8 @@ class ModelWrapper(LightningModule):
                         (h, w),
                         cam_rot_delta=cam_rot_delta,
                         cam_trans_delta=cam_trans_delta , 
-                        rep = representation_gaussians, which_img=(True, True)
+                        rep = representation_gaussians, which_img=(True, True),
+                        original=False
                     )
 
                     # Compute and log loss.
@@ -482,7 +534,8 @@ class ModelWrapper(LightningModule):
             batch["target"]["near"],
             batch["target"]["far"],
             (h, w),
-            rep = representation_gaussians, which_img=(True, True)
+            rep = representation_gaussians, which_img=(True, True),
+            original=False
         )
 
         return output
@@ -518,6 +571,29 @@ class ModelWrapper(LightningModule):
         # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
 
         representation_gaussians = batch["context"]["rep"]
+        gaussians_original = self.encoder_(batch["context"] , self.global_step)
+
+        output_ = self.decoder.forward(
+                gaussians_original,
+                batch["target"]["extrinsics"],
+                batch["target"]["intrinsics"],
+                batch["target"]["near"],
+                batch["target"]["far"],
+                (h, w),
+                depth_mode=self.train_cfg.depth_mode,
+                rep = representation_gaussians, 
+                which_img=(True, True),
+                original= True
+            )
+        rgb_pred_original = output_.color[0]
+        depth_pred_original = vis_depth_map(output_.depth[0])
+
+
+
+
+
+
+        
 
         # output = self.decoder.forward(
         #     gaussians,
@@ -537,7 +613,8 @@ class ModelWrapper(LightningModule):
             batch["target"]["far"],
             (h, w),
             "depth",
-             rep = representation_gaussians, which_img=(True, True)
+             rep = representation_gaussians, which_img=(True, True),
+             original=False
         )
         rgb_pred = output.color[0]
         depth_pred = vis_depth_map(output.depth[0])
@@ -574,7 +651,26 @@ class ModelWrapper(LightningModule):
         self.log(f"val/mask", l1+l2)
 
 
+        # Loss for Un Masked regions
 
+
+        rep = batch['context']['rep'].view(gaussians.covariances.shape[0], -1)
+        covariances_loss = ((gaussians_original.covariances[rep] - gaussians.covariances[rep]) ** 2).mean()
+        self.log("val/covariances_loss", covariances_loss)
+
+        rep = batch['context']['rep'].view(gaussians.means.shape[0], -1)
+        means_loss = ((gaussians_original.means[rep] - gaussians.means[rep]) ** 2).mean()
+        self.log("val/means_loss", means_loss)
+
+        rep = batch['context']['rep'].view(gaussians.harmonics.shape[0], -1)
+        harmonics_loss = ((gaussians_original.harmonics[rep] - gaussians.harmonics[rep]) ** 2).mean()
+        self.log("val/harmonics_loss", harmonics_loss)
+
+        rep = batch['context']['rep'].view(gaussians.opacities.shape[0], -1)
+        opacities_loss = ((gaussians_original.opacities[rep] - gaussians.opacities[rep]) ** 2).mean()
+        self.log("val/opacities_loss", opacities_loss)
+
+        
 
         # Construct comparison image.
         context_img = inverse_normalize(batch["context"]["image"][0])
@@ -591,7 +687,7 @@ class ModelWrapper(LightningModule):
             add_label(vcat(*context), "Context"),
             add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
             add_label(vcat(*rgb_pred), "Target (Prediction)"),
-            add_label(vcat(*depth_pred), "Depth (Prediction)"),
+            add_label(vcat(*rgb_pred_original) , "Original Noposplat")
         )
 
         if self.distiller is not None:
@@ -780,7 +876,7 @@ class ModelWrapper(LightningModule):
         #     gaussians, extrinsics, intrinsics, near, far, (h, w), "depth",patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
         # )
         output = self.decoder.forward(
-            gaussians, extrinsics, intrinsics, near, far, (h, w), "depth",rep = representation_gaussians, which_img=(True, True)
+            gaussians, extrinsics, intrinsics, near, far, (h, w), "depth",rep = representation_gaussians, which_img=(True, True),original=False
         )
         images = [
             vcat(rgb, depth)
