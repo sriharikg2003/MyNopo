@@ -202,60 +202,6 @@ import torch
 import logging
 import multiprocessing
 
-def get_superpixel_representation(images):
-
-    img = images.permute(0, 2, 3, 1).cpu().numpy()  
-    batch_masks = []
-    
-    segments_slic = slic(img[0], n_segments=300, compactness=10, sigma=1, start_label=1)
-    
-    super_pixel_coordinates = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
-    
-    for i in range(segments_slic.shape[0]):
-        for j in range(segments_slic.shape[1]):
-            super_pixel_coordinates[segments_slic[i, j]].append((i, j))
-    
-    selected_superpixels = random.sample(list(super_pixel_coordinates.keys()), 150)
-    percentage = 10
-    representation_gaussians = []
-    for sp in selected_superpixels:
-        num_pixels = int(len(super_pixel_coordinates[sp]) * percentage / 100)
-        representation_gaussians.extend(random.sample(super_pixel_coordinates[sp], num_pixels))
-    for b in range(img.shape[0]):  
-        
-        
-        mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)  
-
-
-        # for sp in selected_superpixels:
-        #     for x, y in super_pixel_coordinates[sp]:
-        #         mask[x, y] = False
-        #         img[b][x,y,:] = 0
-
-        # for x, y in representation_gaussians:
-        #     mask[x, y] = True
-
-        # plt.figure(figsize=(6, 3))
-        # plt.subplot(1, 2, 1)
-        # plt.imshow(img[b])
-        # plt.title("Modified Image")
-        # plt.axis("off")
-
-        # # Save the mask
-        # plt.subplot(1, 2, 2)
-        # plt.imshow(mask, cmap="gray")
-        # plt.title("Mask")
-        # plt.axis("off")
-
-        # plt.savefig(f"mask_{b}.png", bbox_inches='tight')
-        # plt.close()
-
-        batch_masks.append(torch.tensor(mask))  # Convert to PyTorch tensor
-    images = torch.tensor(img).permute(0, 3, 1, 2) 
-    return images , torch.stack(batch_masks)  
-
-
-
 def apply_crop_shim_to_views(views: AnyViews, shape: tuple[int, int] , is_context : bool) -> AnyViews:
     images, intrinsics = rescale_and_crop(views["image"], views["intrinsics"], shape)
     old_images = images.clone()
