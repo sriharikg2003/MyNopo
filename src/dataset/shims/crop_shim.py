@@ -141,7 +141,7 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         coeffs = pywt.wavedec2(original_img[:, :, 0], wavelet, level=level)
         _, (cH, cV, cD) = coeffs 
         wavelet_magnitude = np.abs(cH) + np.abs(cV) + np.abs(cD) 
-        resized_z =  cv2.resize(cD, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
+        resized_z =  cv2.resize(wavelet_magnitude, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
 
         for i in range(segments_slic.shape[0]):
             for j in range(segments_slic.shape[1]):
