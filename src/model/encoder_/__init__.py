@@ -10,12 +10,12 @@ ENCODERS = {
     "noposplat_multi": (EncoderNoPoSplatMulti, None),
 }
 
-EncoderCfg = EncoderNoPoSplatCfg
+EncoderCfg_ = EncoderNoPoSplatCfg
 
 
-def get_encoder_(cfg: EncoderCfg) -> tuple[Encoder, Optional[EncoderVisualizer]]:
-    encoder, visualizer = ENCODERS[cfg.name]
-    encoder = encoder(cfg)
+def get_encoder_(cfg: EncoderCfg_) -> tuple[Encoder_, Optional[EncoderVisualizer]]:
+    encoder_, visualizer = ENCODERS[cfg.name]
+    encoder_ = encoder_(cfg)
     if visualizer is not None:
-        visualizer = visualizer(cfg.visualizer, encoder)
-    return encoder, visualizer
+        visualizer = visualizer(cfg.visualizer, encoder_)
+    return encoder_, visualizer

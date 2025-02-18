@@ -256,7 +256,7 @@ def train(cfg_dict: DictConfig):
             # Original Noposplat Model Checkpoint
             ckpt_weights_ = ckpt_weights_['state_dict']
 
-            ckpt_weights_ = {k[8:]: v for k, v in ckpt_weights_.items() if k.startswith('encoder_.')}
+            ckpt_weights_ = {k[8:]: v for k, v in ckpt_weights_.items() if k.startswith('encoder.')}
 
 
             model_state_ = encoder_.state_dict()

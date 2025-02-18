@@ -10,11 +10,11 @@ T_encoder = TypeVar("T_encoder")
 
 class EncoderVisualizer(ABC, Generic[T_cfg, T_encoder]):
     cfg: T_cfg
-    encoder: T_encoder
+    encoder_: T_encoder
 
-    def __init__(self, cfg: T_cfg, encoder: T_encoder) -> None:
+    def __init__(self, cfg: T_cfg, encoder_: T_encoder) -> None:
         self.cfg = cfg
-        self.encoder = encoder
+        self.encoder = encoder_
 
     @abstractmethod
     def visualize(

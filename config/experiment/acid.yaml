@@ -17,6 +17,12 @@ model:
     intrinsics_embed_loc: encoder
     intrinsics_embed_type: token
     pretrained_weights: '/workspace/raid/cdsbad/splat3r_try/NoPoSplat/pretrained_weights/acid.ckpt'
+  encoder_:
+    gs_params_head_type: dpt_gs
+    pose_free: true
+    intrinsics_embed_loc: encoder_
+    intrinsics_embed_type: token
+    pretrained_weights: '/workspace/raid/cdsbad/splat3r_try/NoPoSplat/pretrained_weights/acid.ckpt'
   decoder:
     make_scale_invariant: true
 
