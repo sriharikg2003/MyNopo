@@ -141,7 +141,7 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
         coeffs = pywt.wavedec2(original_img[:, :, 0], wavelet, level=level)
         _, (cH, cV, cD) = coeffs 
         wavelet_magnitude = np.abs(cH) + np.abs(cV) + np.abs(cD) 
-        resized_z =  cv2.resize(cD, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
+        resized_z =  cv2.resize(wavelet_magnitude, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
 
         for i in range(segments_slic.shape[0]):
             for j in range(segments_slic.shape[1]):
@@ -150,8 +150,10 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
 
         
         mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
+        
+        percentile =  np.random.uniform(0,60)
+        threshold = np.percentile(mean_wavelet_values, percentile)
 
-        threshold = np.percentile(mean_wavelet_values, 60)
         selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
         representation_gaussians = []
         for sp in selected_superpixels:
@@ -172,19 +174,19 @@ def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, perce
             mask[x, y] = True
 
 
-        # plt.figure(figsize=(6, 3))
-        # plt.subplot(1, 2, 1)
-        # plt.imshow(mark_boundaries(original_img, segments_slic))
-        # plt.title("Superpixel Boundaries")
-        # plt.axis("off")
+        plt.figure(figsize=(6, 3))
+        plt.subplot(1, 2, 1)
+        plt.imshow(mark_boundaries(original_img, segments_slic))
+        plt.title("Superpixel Boundaries")
+        plt.axis("off")
 
-        # plt.subplot(1, 2, 2)
-        # plt.imshow(mask, cmap="gray")
-        # plt.title("Mask")
-        # plt.axis("off")
+        plt.subplot(1, 2, 2)
+        plt.imshow(mask, cmap="gray")
+        plt.title("Mask")
+        plt.axis("off")
 
-        # plt.savefig(f"mask_{b}.png", bbox_inches='tight')
-        # plt.close()
+        plt.savefig(f"mask_{b}.png", bbox_inches='tight')
+        plt.close()
 
         batch_masks.append(torch.tensor(mask))  
 
