@@ -182,8 +182,7 @@ class ModelWrapper(LightningModule):
         if self.distiller is not None:
             visualization_dump = {}
         gaussians = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
-
-
+        
         # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
         representation_gaussians = batch["context"]["rep"]
         # output = self.decoder.forward(

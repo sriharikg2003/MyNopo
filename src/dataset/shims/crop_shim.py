@@ -126,7 +126,7 @@ import random
 import matplotlib.pyplot as plt
 from skimage.segmentation import slic, mark_boundaries
 import cv2
-def get_wavelet_superpixel_representation(images, wavelet='haar', level=1, percentage=10):
+def get_wavelet_superpixel_representation(images, wavelet='db1', level=1, percentage=10):
     img = images.permute(0, 2, 3, 1).cpu().numpy()
     batch_masks = []
 
