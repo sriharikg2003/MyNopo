@@ -37,7 +37,7 @@ data_loader:
     batch_size: 8  # 8 for each dataset, since we have 2 datasets, the total batch size is 16
 
 trainer:
-  max_steps: 18751
+  max_steps: 900_001
   val_check_interval: 500
 
 checkpointing:
