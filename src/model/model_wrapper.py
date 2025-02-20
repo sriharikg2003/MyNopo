@@ -190,7 +190,7 @@ class ModelWrapper(LightningModule):
 
         representation_gaussians = batch["context"]["rep"]
         with torch.no_grad():
-            gaussians_original = self.encoder_(batch["context"] , self.global_step)
+            gaussians_original , gaussians_original_modified = self.encoder_(batch["context"] , self.global_step)
 
             output_ = self.decoder.forward(
                     gaussians_original,
@@ -574,7 +574,7 @@ class ModelWrapper(LightningModule):
         # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
 
         representation_gaussians = batch["context"]["rep"]
-        gaussians_original = self.encoder_(batch["context"] , self.global_step)
+        gaussians_original, gaussians_original_modified = self.encoder_(batch["context"] , self.global_step)
 
         output_ = self.decoder.forward(
                 gaussians_original,
