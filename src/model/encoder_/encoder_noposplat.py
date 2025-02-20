@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from einops import rearrange
 from jaxtyping import Float
 from torch import Tensor, nn
-
+from typing import Tuple
 from .backbone.croco.misc import transpose_to_landscape
 from .heads import head_factory
 from ...dataset.shims.bounds_shim import apply_bounds_shim
@@ -158,7 +158,7 @@ class EncoderNoPoSplat(Encoder_[EncoderNoPoSplatCfg]):
         context: dict,
         global_step: int = 0,
         visualization_dump: Optional[dict] = None,
-    ) -> Gaussians:
+    ) -> Tuple[Gaussians, Gaussians_modified]:
         device = context["image"].device
         b, v, _, h, w = context["image"].shape
 
@@ -274,7 +274,7 @@ class EncoderNoPoSplat(Encoder_[EncoderNoPoSplatCfg]):
             )
 
 
-        breakpoint()
+  
         return   Gaussians(
             rearrange(
                 gaussians.means,
