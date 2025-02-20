@@ -15,7 +15,7 @@ from ...dataset.shims.normalize_shim import apply_normalize_shim
 from ...dataset.shims.patch_shim import apply_patch_shim
 from ...dataset.types import BatchedExample, DataShim
 from ...geometry.projection import sample_image_grid
-from ..types import Gaussians , Gaussians_modified
+from ..types import Gaussians
 from .backbone import Backbone, BackboneCfg, get_backbone
 from .common.gaussian_adapter import GaussianAdapter, GaussianAdapterCfg, UnifiedGaussianAdapter
 from .encoder import Encoder
@@ -351,16 +351,11 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 gaussians.opacities, "b v (h w) srf s -> b v h w srf s", h=h, w=w
             )
 
-    # means: Float[Tensor, "*batch 3"]
-    # covariances: Float[Tensor, "*batch 3 3"]
-    # scales: Float[Tensor, "*batch 3"]
-    # rotations: Float[Tensor, "*batch 4"]
-    # harmonics: Float[Tensor, "*batch 3 _"]
-    # opacities: Float[Tensor, " *batch"]
 
 
 
-        return   Gaussians(
+
+        return Gaussians(
             rearrange(
                 gaussians.means,
                 "b v r srf spp xyz -> b (v r srf spp) xyz",
@@ -377,28 +372,6 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 gaussians.opacities,
                 "b v r srf spp -> b (v r srf spp)",
             ),
-
-        ),     Gaussians_modified(
-            rearrange(
-                gaussians.means,
-                "b v r srf spp xyz -> b (v r srf spp) xyz",
-            ),
-            rearrange(
-                gaussians.covariances,
-                "b v r srf spp i j -> b (v r srf spp) i j",
-            ),
-            rearrange(
-                gaussians.harmonics,
-                "b v r srf spp c d_sh -> b (v r srf spp) c d_sh",
-            ),
-            rearrange(
-                gaussians.opacities,
-                "b v r srf spp -> b (v r srf spp)",
-            ),
-            rearrange(
-                gaussians.scales, "b v r srf spp xyz -> b (v r srf spp) xyz"
-            )
-            
         )
 
     def get_data_shim(self) -> DataShim:

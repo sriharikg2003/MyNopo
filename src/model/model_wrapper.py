@@ -185,9 +185,7 @@ class ModelWrapper(LightningModule):
         visualization_dump = None
         if self.distiller is not None:
             visualization_dump = {}
-        gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
-        
-
+        gaussians = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
         representation_gaussians = batch["context"]["rep"]
         with torch.no_grad():
             gaussians_original = self.encoder_(batch["context"] , self.global_step)
@@ -345,7 +343,7 @@ class ModelWrapper(LightningModule):
         
         # Render Gaussians.
         with self.benchmarker.time("encoder"):
-            gaussians , gaussian_mod  = self.encoder(
+            gaussians = self.encoder(
                 batch["context"],
                 self.global_step,
             )
@@ -565,12 +563,11 @@ class ModelWrapper(LightningModule):
 
         assert b == 1
         visualization_dump = {}
-        gaussians , gaussian_mod  = self.encoder(
+        gaussians = self.encoder(
             batch["context"],
             self.global_step,
             visualization_dump=visualization_dump,
         )
-
         # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
 
         representation_gaussians = batch["context"]["rep"]
@@ -804,6 +801,7 @@ class ModelWrapper(LightningModule):
         _, v, _, _ = batch["context"]["extrinsics"].shape
         if v != 2:
             return
+
         def trajectory_fn(t):
             origin_a = batch["context"]["extrinsics"][:, 0, :3, 3]
             origin_b = batch["context"]["extrinsics"][:, 1, :3, 3]
@@ -855,7 +853,7 @@ class ModelWrapper(LightningModule):
     ) -> None:
         # Render probabilistic estimate of scene.
 
-        gaussians , gaussian_mod  = self.encoder(batch["context"], self.global_step)
+        gaussians = self.encoder(batch["context"], self.global_step)
 
         t = torch.linspace(0, 1, num_frames, dtype=torch.float32, device=self.device)
         if smooth:
