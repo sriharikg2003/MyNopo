@@ -185,10 +185,12 @@ class ModelWrapper(LightningModule):
         visualization_dump = None
         if self.distiller is not None:
             visualization_dump = {}
-        gaussians = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
+        gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
+        
+
         representation_gaussians = batch["context"]["rep"]
         with torch.no_grad():
-            gaussians_original = self.encoder_(batch["context"] , self.global_step)
+            gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
             output_ = self.decoder.forward(
                     gaussians_original,
@@ -256,19 +258,19 @@ class ModelWrapper(LightningModule):
 
 
         # Loss for Masked regions
-        diag_indices = torch.arange(3)
-        diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
-        rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
-        mask_false = ~rep
-        l1 =  (diagonal_entries[mask_false]**2).mean()
+        # diag_indices = torch.arange(3)
+        # diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
+        # rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
+        # mask_false = ~rep
+        # l1 =  (diagonal_entries[mask_false]**2).mean()
    
-        total_loss = total_loss + l1
+        # total_loss = total_loss + l1
 
 
-        l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
-        total_loss = total_loss + l2
-        # print(f"Mask loss : {l1+l2}")
-        self.log(f"loss/mask", l1+l2)
+        # l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
+        # total_loss = total_loss + l2
+        # # print(f"Mask loss : {l1+l2}")
+        # self.log(f"loss/mask", l1+l2)
 
 
 
@@ -276,24 +278,17 @@ class ModelWrapper(LightningModule):
         # Loss for Un Masked regions
 
 
-        rep = batch['context']['rep'].view(gaussians.covariances.shape[0], -1)
-        covariances_loss = ((gaussians_original.covariances[rep] - gaussians.covariances[rep]) ** 2).mean()
-        self.log("loss/covariances_loss", covariances_loss)
+        rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
+        scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
+        self.log("loss/scale_loss", scale_loss)
 
-        rep = batch['context']['rep'].view(gaussians.means.shape[0], -1)
-        means_loss = ((gaussians_original.means[rep] - gaussians.means[rep]) ** 2).mean()
-        self.log("loss/means_loss", means_loss)
 
-        rep = batch['context']['rep'].view(gaussians.harmonics.shape[0], -1)
-        harmonics_loss = ((gaussians_original.harmonics[rep] - gaussians.harmonics[rep]) ** 2).mean()
-        self.log("loss/harmonics_loss", harmonics_loss)
-
-        rep = batch['context']['rep'].view(gaussians.opacities.shape[0], -1)
-        opacities_loss = ((gaussians_original.opacities[rep] - gaussians.opacities[rep]) ** 2).mean()
+        rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
+        opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
         self.log("loss/opacities_loss", opacities_loss)
 
         
-        total_loss = total_loss +  covariances_loss + means_loss + harmonics_loss + opacities_loss
+        total_loss = total_loss +  scale_loss + opacities_loss 
 
 
         total_loss*=0.001
@@ -343,7 +338,7 @@ class ModelWrapper(LightningModule):
         
         # Render Gaussians.
         with self.benchmarker.time("encoder"):
-            gaussians = self.encoder(
+            gaussians , gaussian_mod  = self.encoder(
                 batch["context"],
                 self.global_step,
             )
@@ -488,21 +483,21 @@ class ModelWrapper(LightningModule):
                         loss = loss_fn.forward(output, batch, gaussians, self.global_step)
                         self.log(f"loss/{loss_fn.name}", loss)
                         total_loss = total_loss + loss
-                    diag_indices = torch.arange(3)
-                    diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
-                    rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
-                    mask_false = ~rep
-                    l1 =  (diagonal_entries[mask_false]**2).mean()
+                    # diag_indices = torch.arange(3)
+                    # diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
+                    # rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
+                    # mask_false = ~rep
+                    # l1 =  (diagonal_entries[mask_false]**2).mean()
 
 
                     
-                    total_loss = total_loss + l1
+                    # total_loss = total_loss + l1
 
 
-                    l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
-                    total_loss = total_loss + l2
-                    # print(f"Mask loss : {l1+l2}")
-                    self.log(f"loss/mask", l1+l2)
+                    # l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
+                    # total_loss = total_loss + l2
+                    # # print(f"Mask loss : {l1+l2}")
+                    # self.log(f"loss/mask", l1+l2)
 
 
                     total_loss.backward()
@@ -563,15 +558,15 @@ class ModelWrapper(LightningModule):
 
         assert b == 1
         visualization_dump = {}
-        gaussians = self.encoder(
-            batch["context"],
-            self.global_step,
+
+        gaussians , gaussian_mod  = self.encoder(batch["context"],self.global_step,
             visualization_dump=visualization_dump,
         )
+
         # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
 
         representation_gaussians = batch["context"]["rep"]
-        gaussians_original = self.encoder_(batch["context"] , self.global_step)
+        gaussians_original, gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
         output_ = self.decoder.forward(
                 gaussians_original,
@@ -635,40 +630,17 @@ class ModelWrapper(LightningModule):
 
 
 
-        diag_indices = torch.arange(3)
-        diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
-        rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
-        mask_false = ~rep
-        l1 =  (diagonal_entries[mask_false]**2).mean()
-
-
-
-
-
-        l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
-
-        # print(f"Mask loss : {l1+l2}")
-        self.log(f"val/mask", l1+l2)
-
-
         # Loss for Un Masked regions
 
 
-        rep = batch['context']['rep'].view(gaussians.covariances.shape[0], -1)
-        covariances_loss = ((gaussians_original.covariances[rep] - gaussians.covariances[rep]) ** 2).mean()
-        self.log("val/covariances_loss", covariances_loss)
+        rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
+        scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
+        self.log("loss/scale_loss", scale_loss)
 
-        rep = batch['context']['rep'].view(gaussians.means.shape[0], -1)
-        means_loss = ((gaussians_original.means[rep] - gaussians.means[rep]) ** 2).mean()
-        self.log("val/means_loss", means_loss)
 
-        rep = batch['context']['rep'].view(gaussians.harmonics.shape[0], -1)
-        harmonics_loss = ((gaussians_original.harmonics[rep] - gaussians.harmonics[rep]) ** 2).mean()
-        self.log("val/harmonics_loss", harmonics_loss)
-
-        rep = batch['context']['rep'].view(gaussians.opacities.shape[0], -1)
-        opacities_loss = ((gaussians_original.opacities[rep] - gaussians.opacities[rep]) ** 2).mean()
-        self.log("val/opacities_loss", opacities_loss)
+        rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
+        opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
+        self.log("loss/opacities_loss", opacities_loss)
 
         
 
@@ -801,7 +773,6 @@ class ModelWrapper(LightningModule):
         _, v, _, _ = batch["context"]["extrinsics"].shape
         if v != 2:
             return
-
         def trajectory_fn(t):
             origin_a = batch["context"]["extrinsics"][:, 0, :3, 3]
             origin_b = batch["context"]["extrinsics"][:, 1, :3, 3]
@@ -853,7 +824,7 @@ class ModelWrapper(LightningModule):
     ) -> None:
         # Render probabilistic estimate of scene.
 
-        gaussians = self.encoder(batch["context"], self.global_step)
+        gaussians , gaussian_mod  = self.encoder(batch["context"], self.global_step)
 
         t = torch.linspace(0, 1, num_frames, dtype=torch.float32, device=self.device)
         if smooth:
