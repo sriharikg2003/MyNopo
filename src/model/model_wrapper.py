@@ -558,9 +558,8 @@ class ModelWrapper(LightningModule):
 
         assert b == 1
         visualization_dump = {}
-        gaussians , gaussian_mod  = self.encoder(
-            batch["context"],
-            self.global_step,
+
+        gaussians , gaussian_mod  = self.encoder(batch["context"],self.global_step,
             visualization_dump=visualization_dump,
         )
 
