@@ -14348,4 +14348,4 @@ train step 1920; scene = ['0b8be9ca42632f6c', '1dd6a18f6c2b1e34', 'a70ae3fbc890a
 
 [2025-02-18 10:04:57,552][py.warnings][WARNING] - /workspace/raid/cdsbad/splat3r_try/NoPoSplat/src/model/encoder_/encoder_noposplat.py:758: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
   with torch.cuda.amp.autocast(enabled=False):
-
+a
