@@ -35,7 +35,7 @@ def fig_to_image(
     return (torch.tensor(data, device=device, dtype=torch.float32) / 255)[:3]
 
 
-def prep_image(image: FloatImage) -> UInt8[np.ndarray, "height width channel"]:
+def prep_image(image: FloatImage ,  reverse_channel = False) -> UInt8[np.ndarray, "height width channel"]:
     # Handle batched images.
     if image.ndim == 4:
         image = rearrange(image, "b c h w -> c h (b w)")
@@ -50,6 +50,11 @@ def prep_image(image: FloatImage) -> UInt8[np.ndarray, "height width channel"]:
         image = repeat(image, "() h w -> c h w", c=3)
     assert image.shape[0] in (3, 4)
 
+
+
+    if reverse_channel:
+        permute = [2,1,0]
+        image =  image[permute,:,:]
     image = (image.detach().clip(min=0, max=1) * 255).type(torch.uint8)
     return rearrange(image, "c h w -> h w c").cpu().numpy()
 
@@ -88,11 +93,19 @@ def save_video(
     # Image.fromarray(prep_image(image)).save(path)
     frames = []
     for image in images:
-        frames.append(prep_image(image))
+        frames.append(prep_image(image , reverse_channel =True))
 
-    writer = skvideo.io.FFmpegWriter(path,
-                                     outputdict={'-pix_fmt': 'yuv420p', '-crf': '21',
-                                                 '-vf': f'setpts=1.*PTS'})
+    # writer = skvideo.io.FFmpegWriter(path,
+    #                                  outputdict={'-pix_fmt': 'yuv420p', '-crf': '21',
+    #                                              '-vf': f'setpts=1.*PTS'})
+    # for frame in frames:
+    #     writer.writeFrame(frame)
+    # writer.close()
+    import cv2
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    video_writer = cv2.VideoWriter(path, fourcc, 30, (256, 256))
+
     for frame in frames:
-        writer.writeFrame(frame)
-    writer.close()
+        video_writer.write(frame)
+
+    video_writer.release()

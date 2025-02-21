@@ -209,17 +209,6 @@ class ModelWrapper(LightningModule):
         torchvision.utils.save_image(output_.color[0] , f"orig.png")
         # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
         
-        # output = self.decoder.forward(
-        #     gaussians,
-        #     batch["target"]["extrinsics"],
-        #     batch["target"]["intrinsics"],
-        #     batch["target"]["near"],
-        #     batch["target"]["far"],
-        #     (h, w),
-        #     depth_mode=self.train_cfg.depth_mode,
-        #     patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), 
-        #      which_img=(True, True)
-        # )
 
         
   
@@ -238,6 +227,8 @@ class ModelWrapper(LightningModule):
         )
 
         torchvision.utils.save_image(output.color[0] , f"new.png")
+
+
 
 
         target_gt = batch["target"]["image"]
@@ -342,6 +333,101 @@ class ModelWrapper(LightningModule):
                 batch["context"],
                 self.global_step,
             )
+
+
+
+
+        total_views = batch["context"]["far"].shape[1]
+        # print(batch["target"]["extrinsics"].shape)
+        # exit()
+
+
+
+        context_img = batch["context"]["image"][0]
+        mask = batch["context"]["rep"][0].unsqueeze(1)
+        masked_img = context_img * mask
+        batch["context"]["image"][0] = masked_img
+
+        num_interpolated_views = 60
+        color_interpolate_final_list = []
+        for cam in range(total_views-1):
+            cameras_picked = (cam,cam + 1)
+
+            # batch_size = batch[]
+            
+            device = batch['context']['extrinsics'][:,cameras_picked[0],:,:].device
+            
+
+
+
+            # print(batch["target"]["near"][:,0].unsqueeze(1).shape, batch["target"]["near"][:,0].shape)
+            # exit()
+            interpolate_z_near = batch["context"]["near"][:,0].unsqueeze(1).expand(batch["context"]["near"].shape[0], num_interpolated_views)
+            interpolate_z_far = batch["context"]["far"][:,0].unsqueeze(1).expand(batch["context"]["far"].shape[0], num_interpolated_views)
+
+            t = torch.linspace(0, 1, num_interpolated_views, dtype=torch.float32, device=self.device)
+            
+            t = (torch.cos(torch.pi * (t + 1)) + 1) / 2
+            interpolate_extrinsics_cam = interpolate_extrinsics(batch['context']['extrinsics'][:,cameras_picked[0],:,:], batch['context']['extrinsics'][:,cameras_picked[1],:,:], t )
+            
+            # This should be same if context views intrinsics are same.
+            interpolate_intrinsics_cam = interpolate_intrinsics(batch['context']['intrinsics'][:,cameras_picked[0],:,:], batch['context']['intrinsics'][:,cameras_picked[1],:,:],  t)
+            representation_gaussians = batch["context"]["rep"]
+
+            output_interpolate = self.decoder.forward(
+                gaussians,
+                interpolate_extrinsics_cam,
+                interpolate_intrinsics_cam,
+                interpolate_z_near,
+                interpolate_z_far,
+                (h, w),
+                depth_mode=self.train_cfg.depth_mode,
+                rep = representation_gaussians, 
+                which_img=(True, True),
+                original= False
+            )
+            # output_interpolate = output_interpolate
+            if cam == 0:
+                color_interpolate_final = output_interpolate.color.cpu()
+            else:
+                color_interpolate_final = torch.cat((color_interpolate_final, output_interpolate.color.cpu()), axis = 1)
+        import os   
+        FOLDER_NAME = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/MASKED_OURS_40"
+        os.makedirs( FOLDER_NAME , exist_ok = True)
+        batch_size = batch["context"]["far"].shape[0]
+        import uuid
+        import torchvision
+        for b in range(batch_size):
+            img_list = []
+            num_views = batch["context"]["far"].shape[1]
+
+            for n_view in range(num_views):
+                img = color_interpolate_final[b][n_view].detach().cpu()/color_interpolate_final[b][n_view].detach().cpu().max()
+
+
+                img_list.append(img)
+            name =str( uuid.uuid4())
+
+            context_img = inverse_normalize(batch["context"]["image"][b])
+            mask = batch["context"]["rep"][0].unsqueeze(1)
+            masked_img = context_img * mask
+            save_video(color_interpolate_final[b], f"{FOLDER_NAME}/test_video{b}__{name}.mp4")
+            torchvision.utils.save_image( masked_img , f'{FOLDER_NAME}/context_{b}__{name}.png')
+            torchvision.utils.save_image(color_interpolate_final[b], f"{FOLDER_NAME}/test_interpolate{b}__{name}.png")
+
+
+        # import imageio
+        # with 
+
+
+
+
+
+
+
+
+
+
 
         # align the target pose
         if self.test_cfg.align_pose:
