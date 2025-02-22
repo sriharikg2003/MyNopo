@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Protocol, runtime_checkable, Any
-
+import time
 import moviepy.editor as mpy
 import torch
 import wandb
@@ -189,6 +189,12 @@ class ModelWrapper(LightningModule):
         
 
         representation_gaussians = batch["context"]["rep"]
+
+
+        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
         with torch.no_grad():
             gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
@@ -347,7 +353,15 @@ class ModelWrapper(LightningModule):
         mask = batch["context"]["rep"][0].unsqueeze(1)
         masked_img = context_img * mask
         batch["context"]["image"][0] = masked_img
-
+        representation_gaussians = batch["context"]["rep"]
+        # gaussians.means[ ~representation_gaussians.reshape(b,-1) ] = 0
+        # gaussians.covariances[ ~representation_gaussians.reshape(b,-1) ] = 0
+        # gaussians.opacities[ ~representation_gaussians.reshape(b,-1) ] = 0
+        # gaussians.harmonics[ ~representation_gaussians.reshape(b,-1) ] = 0
+        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
         num_interpolated_views = 60
         color_interpolate_final_list = []
         for cam in range(total_views-1):
@@ -372,8 +386,13 @@ class ModelWrapper(LightningModule):
             
             # This should be same if context views intrinsics are same.
             interpolate_intrinsics_cam = interpolate_intrinsics(batch['context']['intrinsics'][:,cameras_picked[0],:,:], batch['context']['intrinsics'][:,cameras_picked[1],:,:],  t)
-            representation_gaussians = batch["context"]["rep"]
 
+            
+
+
+
+
+            start = time.time()
             output_interpolate = self.decoder.forward(
                 gaussians,
                 interpolate_extrinsics_cam,
@@ -386,13 +405,15 @@ class ModelWrapper(LightningModule):
                 which_img=(True, True),
                 original= False
             )
+            end=time.time()
+            print("Time : ", end - start)
             # output_interpolate = output_interpolate
             if cam == 0:
                 color_interpolate_final = output_interpolate.color.cpu()
             else:
                 color_interpolate_final = torch.cat((color_interpolate_final, output_interpolate.color.cpu()), axis = 1)
         import os   
-        FOLDER_NAME = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/MASKED_OURS_40"
+        FOLDER_NAME = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/MASKED_OURS_90__"
         os.makedirs( FOLDER_NAME , exist_ok = True)
         batch_size = batch["context"]["far"].shape[0]
         import uuid
@@ -415,12 +436,11 @@ class ModelWrapper(LightningModule):
             torchvision.utils.save_image( masked_img , f'{FOLDER_NAME}/context_{b}__{name}.png')
             torchvision.utils.save_image(color_interpolate_final[b], f"{FOLDER_NAME}/test_interpolate{b}__{name}.png")
 
-
         # import imageio
         # with 
 
 
-
+        exit()
 
 
 
@@ -430,6 +450,7 @@ class ModelWrapper(LightningModule):
 
 
         # align the target pose
+
         if self.test_cfg.align_pose:
             output = self.test_step_align(batch, gaussians)
         else:
@@ -653,6 +674,11 @@ class ModelWrapper(LightningModule):
 
         representation_gaussians = batch["context"]["rep"]
         gaussians_original, gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
+        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+
 
         output_ = self.decoder.forward(
                 gaussians_original,

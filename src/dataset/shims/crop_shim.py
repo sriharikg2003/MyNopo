@@ -151,7 +151,7 @@ def get_wavelet_superpixel_representation(images, wavelet='db1', level=1, percen
         
         mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
         
-        percentile =  40
+        percentile =  0
         threshold = np.percentile(mean_wavelet_values, percentile)
 
         selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
