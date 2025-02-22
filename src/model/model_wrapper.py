@@ -392,7 +392,7 @@ class ModelWrapper(LightningModule):
 
 
 
-            start = time.time()
+     
             output_interpolate = self.decoder.forward(
                 gaussians,
                 interpolate_extrinsics_cam,
@@ -405,8 +405,8 @@ class ModelWrapper(LightningModule):
                 which_img=(True, True),
                 original= False
             )
-            end=time.time()
-            print("Time : ", end - start)
+            
+
             # output_interpolate = output_interpolate
             if cam == 0:
                 color_interpolate_final = output_interpolate.color.cpu()
