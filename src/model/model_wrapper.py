@@ -144,186 +144,188 @@ class ModelWrapper(LightningModule):
 
     def training_step(self, batch, batch_idx):
         # combine batch from different dataloaders
-
-        if isinstance(batch, list):
-            batch_combined = None
-            for batch_per_dl in batch:
-                if batch_combined is None:
-                    batch_combined = batch_per_dl
-                else:
-                    for k in batch_combined.keys():
-                        if isinstance(batch_combined[k], list):
-                            batch_combined[k] += batch_per_dl[k]
-                        elif isinstance(batch_combined[k], dict):
-                            for kk in batch_combined[k].keys():
-                                batch_combined[k][kk] = torch.cat([batch_combined[k][kk], batch_per_dl[k][kk]], dim=0)
-                        else:
-                            raise NotImplementedError
-            batch = batch_combined
-        batch: BatchedExample = self.data_shim(batch)
-        b, t, _, h, w = batch["target"]["image"].shape
-
-
-        # from torchvision.utils import save_image
-
-        # c0  = batch["context"]['image'][0,0,:,:,:]
-        # c1  = batch["context"]['image'][0,1,:,:,:]
-
-        # save_image(c0,'/data2/badrinath/NoPoSplat/c0.png')
-        # save_image(c1,'/data2/badrinath/NoPoSplat/c1.png')
-
-        # image0 = batch["target"]['image'][0,0,:,:,:]
-        # image1 = batch["target"]['image'][0,1,:,:,:]
-        # image2 = batch["target"]['image'][0,2,:,:,:]
-
-        # save_image(image0,'/data2/badrinath/NoPoSplat/t0.png')
-        # save_image(image1,'/data2/badrinath/NoPoSplat/t1.png')
-        # save_image(image2,'/data2/badrinath/NoPoSplat/t2.png')
+        try:
+            if isinstance(batch, list):
+                batch_combined = None
+                for batch_per_dl in batch:
+                    if batch_combined is None:
+                        batch_combined = batch_per_dl
+                    else:
+                        for k in batch_combined.keys():
+                            if isinstance(batch_combined[k], list):
+                                batch_combined[k] += batch_per_dl[k]
+                            elif isinstance(batch_combined[k], dict):
+                                for kk in batch_combined[k].keys():
+                                    batch_combined[k][kk] = torch.cat([batch_combined[k][kk], batch_per_dl[k][kk]], dim=0)
+                            else:
+                                raise NotImplementedError
+                batch = batch_combined
+            batch: BatchedExample = self.data_shim(batch)
+            b, t, _, h, w = batch["target"]["image"].shape
 
 
-        # Run the model.
-        visualization_dump = None
-        if self.distiller is not None:
-            visualization_dump = {}
-        gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
-        
+            # from torchvision.utils import save_image
 
-        representation_gaussians = batch["context"]["rep"]
+            # c0  = batch["context"]['image'][0,0,:,:,:]
+            # c1  = batch["context"]['image'][0,1,:,:,:]
 
+            # save_image(c0,'/data2/badrinath/NoPoSplat/c0.png')
+            # save_image(c1,'/data2/badrinath/NoPoSplat/c1.png')
 
+            # image0 = batch["target"]['image'][0,0,:,:,:]
+            # image1 = batch["target"]['image'][0,1,:,:,:]
+            # image2 = batch["target"]['image'][0,2,:,:,:]
 
-        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
-        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
-        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.opacities = gaussians.opacities * gauss_mask
-
-        with torch.no_grad():
-            gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
-
-            output_ = self.decoder.forward(
-                    gaussians_original,
-                    batch["target"]["extrinsics"],
-                    batch["target"]["intrinsics"],
-                    batch["target"]["near"],
-                    batch["target"]["far"],
-                    (h, w),
-                    depth_mode=self.train_cfg.depth_mode,
-                    rep = representation_gaussians, 
-                    which_img=(True, True),
-                    original= True
-                )
+            # save_image(image0,'/data2/badrinath/NoPoSplat/t0.png')
+            # save_image(image1,'/data2/badrinath/NoPoSplat/t1.png')
+            # save_image(image2,'/data2/badrinath/NoPoSplat/t2.png')
 
 
-        torchvision.utils.save_image(output_.color[0] , f"orig.png")
-        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-        
+            # Run the model.
+            visualization_dump = None
+            if self.distiller is not None:
+                visualization_dump = {}
+            gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
+            
 
-        
-  
-
-        output = self.decoder.forward(
-            gaussians,
-            batch["target"]["extrinsics"],
-            batch["target"]["intrinsics"],
-            batch["target"]["near"],
-            batch["target"]["far"],
-            (h, w),
-            depth_mode=self.train_cfg.depth_mode,
-            rep = representation_gaussians, 
-            which_img=(True, True),
-            original= False
-        )
-
-        torchvision.utils.save_image(output.color[0] , f"new.png")
+            representation_gaussians = batch["context"]["rep"]
 
 
 
+            gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+            gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+            gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+            gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+            gaussians.opacities = gaussians.opacities * gauss_mask
 
-        target_gt = batch["target"]["image"]
-
-        # Compute metrics.
-        psnr_probabilistic = compute_psnr(
-            rearrange(target_gt, "b v c h w -> (b v) c h w"),
-            rearrange(output.color, "b v c h w -> (b v) c h w"),
-        )
-        self.log("train/psnr_probabilistic", psnr_probabilistic.mean())
-
-        # Compute and log loss.
-        total_loss = 0
-        for loss_fn in self.losses[:-1]:
-            loss = loss_fn.forward(output, batch, gaussians, self.global_step)
-            self.log(f"loss/{loss_fn.name}", loss)
-            total_loss = total_loss + loss
-
-
-        # Loss for Masked regions
-        # diag_indices = torch.arange(3)
-        # diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
-        # rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
-        # mask_false = ~rep
-        # l1 =  (diagonal_entries[mask_false]**2).mean()
-   
-        # total_loss = total_loss + l1
-
-
-        # l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
-        # total_loss = total_loss + l2
-        # # print(f"Mask loss : {l1+l2}")
-        # self.log(f"loss/mask", l1+l2)
-
-
-
-
-        # Loss for Un Masked regions
-
-
-        rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
-        scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
-        self.log("loss/scale_loss", scale_loss)
-
-
-        rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
-        opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
-        self.log("loss/opacities_loss", opacities_loss)
-
-        
-        total_loss = total_loss +  scale_loss + opacities_loss 
-
-        print("LOSS " , total_loss)
-
-
-        # distillation
-        if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
             with torch.no_grad():
-                pseudo_gt1, pseudo_gt2 = self.distiller(batch["context"], False)
-            distillation_loss = self.distiller_loss(pseudo_gt1['pts3d'], pseudo_gt2['pts3d'],
-                                                    visualization_dump['means'][:, 0].squeeze(-2),
-                                                    visualization_dump['means'][:, 1].squeeze(-2),
-                                                    pseudo_gt1['conf'], pseudo_gt2['conf'], disable_view1=False) * 0.1
-            self.log("loss/distillation_loss", distillation_loss)
-            total_loss = total_loss + distillation_loss
+                gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
-        self.log("loss/total", total_loss)
+                output_ = self.decoder.forward(
+                        gaussians_original,
+                        batch["target"]["extrinsics"],
+                        batch["target"]["intrinsics"],
+                        batch["target"]["near"],
+                        batch["target"]["far"],
+                        (h, w),
+                        depth_mode=self.train_cfg.depth_mode,
+                        rep = representation_gaussians, 
+                        which_img=(True, True),
+                        original= True
+                    )
 
-        if (
-            self.global_rank == 0
-            and self.global_step % self.train_cfg.print_log_every_n_steps == 0
-        ):
-            print(
-                f"train step {self.global_step}; "
-                f"scene = {[x[:20] for x in batch['scene']]}; "
-                f"context = {batch['context']['index'].tolist()}; "
-                f"loss = {total_loss:.6f}"
+
+            torchvision.utils.save_image(output_.color[0] , f"orig.png")
+            # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
+            
+
+            
+    
+
+            output = self.decoder.forward(
+                gaussians,
+                batch["target"]["extrinsics"],
+                batch["target"]["intrinsics"],
+                batch["target"]["near"],
+                batch["target"]["far"],
+                (h, w),
+                depth_mode=self.train_cfg.depth_mode,
+                rep = representation_gaussians, 
+                which_img=(True, True),
+                original= False
             )
-        self.log("info/global_step", self.global_step)  # hack for ckpt monitor
 
-        # Tell the data loader processes about the current step.
-        if self.step_tracker is not None:
-            self.step_tracker.set_step(self.global_step)
+            torchvision.utils.save_image(output.color[0] , f"new.png")
 
-        return total_loss
 
+
+
+            target_gt = batch["target"]["image"]
+
+            # Compute metrics.
+            psnr_probabilistic = compute_psnr(
+                rearrange(target_gt, "b v c h w -> (b v) c h w"),
+                rearrange(output.color, "b v c h w -> (b v) c h w"),
+            )
+            self.log("train/psnr_probabilistic", psnr_probabilistic.mean())
+
+            # Compute and log loss.
+            total_loss = 0
+            for loss_fn in self.losses[:-1]:
+                loss = loss_fn.forward(output, batch, gaussians, self.global_step)
+                self.log(f"loss/{loss_fn.name}", loss)
+                total_loss = total_loss + loss
+
+
+            # Loss for Masked regions
+            # diag_indices = torch.arange(3)
+            # diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
+            # rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
+            # mask_false = ~rep
+            # l1 =  (diagonal_entries[mask_false]**2).mean()
+    
+            # total_loss = total_loss + l1
+
+
+            # l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
+            # total_loss = total_loss + l2
+            # # print(f"Mask loss : {l1+l2}")
+            # self.log(f"loss/mask", l1+l2)
+
+
+
+
+            # Loss for Un Masked regions
+
+
+            rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
+            scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
+            self.log("loss/scale_loss", scale_loss)
+
+
+            rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
+            opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
+            self.log("loss/opacities_loss", opacities_loss)
+
+            
+            total_loss = total_loss +  scale_loss + opacities_loss 
+
+            print("LOSS " , total_loss)
+
+
+            # distillation
+            if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
+                with torch.no_grad():
+                    pseudo_gt1, pseudo_gt2 = self.distiller(batch["context"], False)
+                distillation_loss = self.distiller_loss(pseudo_gt1['pts3d'], pseudo_gt2['pts3d'],
+                                                        visualization_dump['means'][:, 0].squeeze(-2),
+                                                        visualization_dump['means'][:, 1].squeeze(-2),
+                                                        pseudo_gt1['conf'], pseudo_gt2['conf'], disable_view1=False) * 0.1
+                self.log("loss/distillation_loss", distillation_loss)
+                total_loss = total_loss + distillation_loss
+
+            self.log("loss/total", total_loss)
+
+            if (
+                self.global_rank == 0
+                and self.global_step % self.train_cfg.print_log_every_n_steps == 0
+            ):
+                print(
+                    f"train step {self.global_step}; "
+                    f"scene = {[x[:20] for x in batch['scene']]}; "
+                    f"context = {batch['context']['index'].tolist()}; "
+                    f"loss = {total_loss:.6f}"
+                )
+            self.log("info/global_step", self.global_step)  # hack for ckpt monitor
+
+            # Tell the data loader processes about the current step.
+            if self.step_tracker is not None:
+                self.step_tracker.set_step(self.global_step)
+
+            return total_loss
+        except:
+            print("ERROR CATCHED")
+            return 0
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
         
