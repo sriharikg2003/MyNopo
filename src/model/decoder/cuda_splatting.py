@@ -1,6 +1,6 @@
 from math import isqrt
 from typing import Literal
-
+import time
 import torch
 from diff_gaussian_rasterization import (
     GaussianRasterizationSettings,
@@ -116,7 +116,7 @@ def render_cuda(
         rasterizer = GaussianRasterizer(settings)
 
         row, col = torch.triu_indices(3, 3)
-
+        start = time.time()
         image, radii, depth, opacity, n_touched = rasterizer(
             means3D=gaussian_means[i],
             means2D=mean_gradients,
@@ -127,6 +127,8 @@ def render_cuda(
             theta=cam_rot_delta[i] if cam_rot_delta is not None else None,
             rho=cam_trans_delta[i] if cam_trans_delta is not None else None,
         )
+        end = time.time()
+        print(f"@@RENDER {end-start} @@")
         all_images.append(image)
         all_radii.append(radii)
         all_depths.append(depth.squeeze(0))
