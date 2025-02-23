@@ -273,12 +273,16 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                         print(f"Warning: Key {key} not found in sp_wave_values")
             mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
 
-            
-            threshold = np.percentile(mean_wavelet_values, percentage)
 
-            selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
+            left = int(len(sp_cord.keys()) * percentage / 100)
+            right = len(sp_cord.keys()) - left 
+            indices = np.argsort(mean_wavelet_values)
 
-            return selected_superpixels
+            selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
+            selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
+
+
+            return selected_superpixels , selected_superpixels_high
 
 
 
@@ -313,7 +317,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
         for b in range(context['image'].size(0)):  # Iterate over batch
-            percentage = np.random.uniform(0,80)
+            fraction = np.random.uniform(0,80)
             pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
             pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
 
@@ -355,13 +359,12 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 for j in range(pts1_cluster_label.shape[1]):
                     super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             
-            selected_superpixels = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=percentage)
+            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=fraction)
             #breakpoint()
-            percentage = 10
             
             representation_gaussians_1 = []
             for sp in selected_superpixels:
-                num_pixels = int(len(super_pixel_coordinates_1[sp]) * percentage / 100)
+                num_pixels = int(len(super_pixel_coordinates_1[sp]) * 10 / 100)
                 representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
             #breakpoint()
             mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
@@ -372,6 +375,22 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             #breakpoint()
             for x, y in representation_gaussians_1:
                 mask[x, y] = True
+
+
+            # HIgh texture
+            representation_gaussians_1 = []
+            for sp in selected_superpixels_high:
+                num_pixels = int(len(super_pixel_coordinates_1[sp]) * 90 / 100)
+                representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
+            #breakpoint()
+            for sp in selected_superpixels_high:
+                for x, y in super_pixel_coordinates_1[sp]:
+                    mask[x, y] = False
+                    
+            #breakpoint()
+            for x, y in representation_gaussians_1:
+                mask[x, y] = True
+
 
 
             #breakpoint()
@@ -395,10 +414,10 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                     super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             representation_gaussians_2 = []
             mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool) 
-            selected_superpixels = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label, percentage=percentage) 
+            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label , percentage=fraction) 
             for sp in selected_superpixels:
                 if sp in super_pixel_coordinates_2:
-                    num_pixels = int(len(super_pixel_coordinates_2[sp]) * percentage / 100)
+                    num_pixels = int(len(super_pixel_coordinates_2[sp]) * 10 / 100)
                     representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
                 
                 else:
@@ -414,6 +433,25 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 mask[x, y] = True
             #breakpoint()
             # import torchvision
+
+
+            # HIgh texture
+            representation_gaussians_2 = []
+            for sp in selected_superpixels_high:
+                num_pixels = int(len(super_pixel_coordinates_2[sp]) * 90 / 100)
+                representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
+            #breakpoint()
+            for sp in selected_superpixels_high:
+                for x, y in super_pixel_coordinates_2[sp]:
+                    mask[x, y] = False
+                    
+            #breakpoint()
+            for x, y in representation_gaussians_2:
+                mask[x, y] = True
+
+
+
+
             # torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
             plt.imshow(mask, cmap="gray")
 
