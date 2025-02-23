@@ -215,7 +215,7 @@ class ModelWrapper(LightningModule):
                     )
 
 
-            torchvision.utils.save_image(output_.color[0] , f"orig.png")
+            # torchvision.utils.save_image(output_.color[0] , f"orig.png")
             # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
             
 
@@ -235,7 +235,7 @@ class ModelWrapper(LightningModule):
                 original= False
             )
 
-            torchvision.utils.save_image(output.color[0] , f"new.png")
+            # torchvision.utils.save_image(output.color[0] , f"new.png")
 
 
 
