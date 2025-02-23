@@ -193,3 +193,6 @@ ORIGINAL_RE10K/
 MaskAcid/
 LightGaussian/
 MaskReal/
+*.ply
+0_RE10K/
+UNMASKED_OURS/
