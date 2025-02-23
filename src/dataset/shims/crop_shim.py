@@ -131,62 +131,62 @@ def get_wavelet_superpixel_representation(images, wavelet='db1', level=1, percen
     batch_masks = []
 
     for b in range(img.shape[0]): 
-        original_img = img[b]
+    #     original_img = img[b]
 
-        segments_slic = slic(original_img, n_segments=300, compactness=10, sigma=1, start_label=1)
+    #     segments_slic = slic(original_img, n_segments=300, compactness=10, sigma=1, start_label=1)
 
-        sp_cord = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
-        sp_wave_values = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
+    #     sp_cord = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
+    #     sp_wave_values = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
 
-        coeffs = pywt.wavedec2(original_img[:, :, 0], wavelet, level=level)
-        _, (cH, cV, cD) = coeffs 
-        wavelet_magnitude = np.abs(cH) + np.abs(cV) + np.abs(cD) 
-        resized_z =  cv2.resize(wavelet_magnitude, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
+    #     coeffs = pywt.wavedec2(original_img[:, :, 0], wavelet, level=level)
+    #     _, (cH, cV, cD) = coeffs 
+    #     wavelet_magnitude = np.abs(cH) + np.abs(cV) + np.abs(cD) 
+    #     resized_z =  cv2.resize(wavelet_magnitude, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
 
-        for i in range(segments_slic.shape[0]):
-            for j in range(segments_slic.shape[1]):
-                sp_cord[segments_slic[i, j]].append((i, j))
-                sp_wave_values[segments_slic[i, j]].append(abs(resized_z[i, j]))
+    #     for i in range(segments_slic.shape[0]):
+    #         for j in range(segments_slic.shape[1]):
+    #             sp_cord[segments_slic[i, j]].append((i, j))
+    #             sp_wave_values[segments_slic[i, j]].append(abs(resized_z[i, j]))
 
         
-        mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
+    #     mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
         
-        percentile =  0
-        threshold = np.percentile(mean_wavelet_values, percentile)
+    #     percentile =  0
+    #     threshold = np.percentile(mean_wavelet_values, percentile)
 
-        selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
-        representation_gaussians = []
-        for sp in selected_superpixels:
-            num_pixels = int(len(sp_cord[sp]) * percentage / 100)
-            representation_gaussians.extend(random.sample(sp_cord[sp], num_pixels))
+    #     selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
+    #     representation_gaussians = []
+    #     for sp in selected_superpixels:
+    #         num_pixels = int(len(sp_cord[sp]) * percentage / 100)
+    #         representation_gaussians.extend(random.sample(sp_cord[sp], num_pixels))
 
        
         mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)
 
 
-        for sp in selected_superpixels:
-            for x, y in sp_cord[sp]:
-                mask[x, y] = False
-                # img[b][x, y, :] = 0  
+        # for sp in selected_superpixels:
+        #     for x, y in sp_cord[sp]:
+        #         mask[x, y] = False
+        #         # img[b][x, y, :] = 0  
 
 
-        for x, y in representation_gaussians:
-            mask[x, y] = True
+        # for x, y in representation_gaussians:
+        #     mask[x, y] = True
 
 
-        plt.figure(figsize=(6, 3))
-        plt.subplot(1, 2, 1)
-        plt.imshow(mark_boundaries(original_img, segments_slic))
-        plt.title("Superpixel Boundaries")
-        plt.axis("off")
+        # plt.figure(figsize=(6, 3))
+        # plt.subplot(1, 2, 1)
+        # plt.imshow(mark_boundaries(original_img, segments_slic))
+        # plt.title("Superpixel Boundaries")
+        # plt.axis("off")
 
-        plt.subplot(1, 2, 2)
-        plt.imshow(mask, cmap="gray")
-        plt.title("Mask")
-        plt.axis("off")
+        # plt.subplot(1, 2, 2)
+        # plt.imshow(mask, cmap="gray")
+        # plt.title("Mask")
+        # plt.axis("off")
 
-        plt.savefig(f"mask_{b}.png", bbox_inches='tight')
-        plt.close()
+        # plt.savefig(f"mask_{b}.png", bbox_inches='tight')
+        # plt.close()
 
         batch_masks.append(torch.tensor(mask))  
 

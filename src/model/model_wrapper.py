@@ -161,7 +161,8 @@ class ModelWrapper(LightningModule):
                             raise NotImplementedError
             batch = batch_combined
         batch: BatchedExample = self.data_shim(batch)
-        _, _, _, h, w = batch["target"]["image"].shape
+
+        b, _, _, h, w = batch["target"]["image"].shape
 
 
         # from torchvision.utils import save_image
@@ -189,8 +190,6 @@ class ModelWrapper(LightningModule):
         
 
         representation_gaussians = batch["context"]["rep"]
-
-
         gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
         gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
         gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
