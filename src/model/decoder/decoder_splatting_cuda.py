@@ -109,7 +109,7 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
             # gaussians.opacities = gaussians.opacities[ rep.reshape(b,-1) ].unsqueeze(0)
 
             pass
-
+        breakpoint()
         color, depth = render_cuda(
             rearrange(extrinsics, "b v i j -> (b v) i j"),
             rearrange(intrinsics, "b v i j -> (b v) i j"),
