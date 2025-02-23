@@ -26,6 +26,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -174,7 +175,6 @@ cython_debug/
 /slurm_logs
 *.torch
 *.ckpt
-*.ply
 table.tex
 /baselines
 /test/*
@@ -182,11 +182,17 @@ table.tex
 *.out
 *.png
 
-
-
-MaskAcid/
-800/
+src/dataset/shims/sam2.1_hiera_large.pt
+40_RE10K/
+30_RE10K/
 60/
-MaskReal/
+800/
+50_RE10K/
 ORIGINAL_ACID/
 ORIGINAL_RE10K/
+MaskAcid/
+LightGaussian/
+MaskReal/
+*.ply
+0_RE10K/
+UNMASKED_OURS/
