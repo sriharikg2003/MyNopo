@@ -181,3 +181,18 @@ table.tex
 
 *.out
 *.png
+
+src/dataset/shims/sam2.1_hiera_large.pt
+40_RE10K/
+30_RE10K/
+60/
+800/
+50_RE10K/
+ORIGINAL_ACID/
+ORIGINAL_RE10K/
+MaskAcid/
+LightGaussian/
+MaskReal/
+*.ply
+0_RE10K/
+UNMASKED_OURS/
