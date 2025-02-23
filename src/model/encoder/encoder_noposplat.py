@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 from jaxtyping import Float
+import time
 from torch import Tensor, nn
 from typing import Tuple
 from .backbone.croco.misc import transpose_to_landscape
@@ -307,126 +308,124 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
         pts_all = torch.stack((pts3d1, pts3d2), dim=1)
         pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
-#####
 
 
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        all_batches = []  # Store all batch-wise tensor data
+        split_sizes = []  # Track number of points per batch for correct slicing
+
+        # Step 1: Collect all batch-wise data
         for b in range(context['image'].size(0)):  # Iterate over batch
-
             pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
             pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
-            breakpoint()
+
             # Flatten into a (N, 6) tensor
             tensor_data = torch.cat((pts1_append, pts2_append), dim=0).reshape(-1, 6)
+            tensor_data = tensor_data.detach()  # Ensure no gradients
 
-            # Ensure no gradients are tracked
-            tensor_data = tensor_data.detach()
+            all_batches.append(tensor_data)
+            split_sizes.append(tensor_data.shape[0])  # Store batch size
 
-            # Use GPU if available
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            tensor_data = tensor_data.to(device)
+        stacked_data = torch.cat(all_batches, dim=0).to(device)  # Shape: (Total_N, 6)
 
-            # Reshape to match KMeans expected input shape (BS, N, D)
-            tensor_data = tensor_data.unsqueeze(0)  # Adds batch dimension (1, N, D)
+        stacked_data = stacked_data.unsqueeze(0)  # Shape: (1, Total_N, 6)
 
-            kmeans = KMeans(n_clusters=300, mode='euclidean', verbose=0)
+        kmeans = KMeans(n_clusters=300, mode='euclidean', verbose=0)
 
-            # Perform clustering
-            cluster_result = kmeans.fit_predict(tensor_data)  # Returns a ClusterResult object
+        start = time.time()
+        cluster_labels = kmeans.fit_predict(stacked_data)  # Now input shape is correct
+        print(f"##CLUSTER {time.time() - start}")
 
+        # Step 4: Split cluster labels back into batches
+        
+        batch_size, total_points = cluster_labels.shape
+        half_size = total_points // 2  # Assuming total_points is even
 
-            cluster_labels = cluster_result   
+        # Split along the second dimension (per batch)
+        pts1_cluster_label, pts2_cluster_label = cluster_labels[:, :half_size], cluster_labels[:, half_size:]
+        # Step 5: Process each batch separately
+        for b in range(context['image'].size(0)):
+            pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
+            pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
 
-            # Reshape cluster labels back to original dimensions
             num_pts1 = pts1_append.shape[0] * pts1_append.shape[1]  # Total points in first image
-            pts1_cluster_label = cluster_labels[0][:num_pts1].reshape(pts1_append.shape[0], pts1_append.shape[1])
-            pts2_cluster_label = cluster_labels[0][num_pts1:].reshape(pts2_append.shape[0], pts2_append.shape[1])
+            batch_labels = pts1_cluster_label[b]  # Get batch-specific cluster labels
+
+            # Split cluster labels into pts1 and pts2
+            pts1_cluster_label = pts1_cluster_label[b].reshape(pts1_append.shape[0], pts1_append.shape[1])
+            pts2_cluster_label = pts2_cluster_label[b].reshape(pts2_append.shape[0], pts2_append.shape[1])
 
             # Ensure labels are on the correct device
             pts1_cluster_label = pts1_cluster_label.to(device)
             pts2_cluster_label = pts2_cluster_label.to(device)
 
+            # Step 6: Superpixel Clustering
+            super_pixel_coordinates_1 = {i: [] for i in range(pts1_cluster_label.min().item(), pts1_cluster_label.max().item() + 1)}
+            super_pixel_coordinates_2 = {i: [] for i in range(pts2_cluster_label.min().item(), pts2_cluster_label.max().item() + 1)}
 
-
-
-            super_pixel_coordinates_1 = {i: [] for i in range(pts1_cluster_label.min(), pts1_cluster_label.max() + 1)}
-            
+            # Fill superpixel coordinate maps
             for i in range(pts1_cluster_label.shape[0]):
                 for j in range(pts1_cluster_label.shape[1]):
-                    super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
-            
-            selected_superpixels = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label)
-            #breakpoint()
-            percentage = 10
-            
-            representation_gaussians_1 = []
-            for sp in selected_superpixels:
-                num_pixels = int(len(super_pixel_coordinates_1[sp]) * percentage / 100)
-                representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
-            #breakpoint()
-            mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
-            for sp in selected_superpixels:
-                for x, y in super_pixel_coordinates_1[sp]:
-                    mask[x, y] = False
-                    
-            #breakpoint()
-            for x, y in representation_gaussians_1:
-                mask[x, y] = True
+                    super_pixel_coordinates_1[pts1_cluster_label[i, j].item()].append((i, j))
+                    super_pixel_coordinates_2[pts2_cluster_label[i, j].item()].append((i, j))
 
+            selected_superpixels_1 = select_superpixels(context['image'][b, 0].permute(1, 2, 0), super_pixel_coordinates_1, pts1_cluster_label)
+            selected_superpixels_2 = select_superpixels(context['image'][b, 1].permute(1, 2, 0), super_pixel_coordinates_2, pts2_cluster_label)
 
-            #breakpoint()
-            
-            # torchvision.utils.save_image(context['image'][b, 0] , "del.png")
-            plt.imshow(mask, cmap="gray")
+            percentage = 10  # Percentage of pixels to sample
 
+            # Step 7: Gaussian Representation Sampling
+            representation_gaussians_1 = [
+                random.sample(super_pixel_coordinates_1[sp], int(len(super_pixel_coordinates_1[sp]) * percentage / 100))
+                for sp in selected_superpixels_1 if sp in super_pixel_coordinates_1
+            ]
+            representation_gaussians_2 = [
+                random.sample(super_pixel_coordinates_2[sp], int(len(super_pixel_coordinates_2[sp]) * percentage / 100))
+                for sp in selected_superpixels_2 if sp in super_pixel_coordinates_2
+            ]
 
-            plt.savefig(f"mask_3d_{1}.png", bbox_inches='tight')
-            plt.close()
-            #breakpoint()
-            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][0].device)
+            # Flatten lists
+            representation_gaussians_1 = [coord for sublist in representation_gaussians_1 for coord in sublist]
+            representation_gaussians_2 = [coord for sublist in representation_gaussians_2 for coord in sublist]
 
+            # Step 8: Masking
+            mask_1 = np.ones((context['image'].shape[-2], context['image'].shape[-1]), dtype=bool)
+            mask_2 = np.ones((context['image'].shape[-2], context['image'].shape[-1]), dtype=bool)
 
-            context['rep'][b][0] = mask_tensor
-
-            #breakpoint()
-            super_pixel_coordinates_2 = {i: [] for i in range(pts2_cluster_label.min(), pts2_cluster_label.max() + 1)}
-            for i in range(pts2_cluster_label.shape[0]):
-                for j in range(pts2_cluster_label.shape[1]):
-                    super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
-            representation_gaussians_2 = []
-            mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool) 
-            selected_superpixels = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label) 
-            for sp in selected_superpixels:
-                if sp in super_pixel_coordinates_2:
-                    num_pixels = int(len(super_pixel_coordinates_2[sp]) * percentage / 100)
-                    representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
-                
-                else:
-                    print(sp , "******")
-            #breakpoint()
-            for sp in selected_superpixels:
+            # Remove non-representative superpixels
+            for sp in selected_superpixels_1:
+                if sp in super_pixel_coordinates_1:
+                    for x, y in super_pixel_coordinates_1[sp]:
+                        mask_1[x, y] = False
+            for sp in selected_superpixels_2:
                 if sp in super_pixel_coordinates_2:
                     for x, y in super_pixel_coordinates_2[sp]:
-                        mask[x, y] = False
-                        
-            #breakpoint()
+                        mask_2[x, y] = False
+
+            # Add selected representative pixels
+            for x, y in representation_gaussians_1:
+                mask_1[x, y] = True
             for x, y in representation_gaussians_2:
-                mask[x, y] = True
-            #breakpoint()
-            # import torchvision
-            # torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
-            plt.imshow(mask, cmap="gray")
+                mask_2[x, y] = True
 
-
-            plt.savefig(f"mask_3d_{2}.png", bbox_inches='tight')
+            # Step 9: Save & Convert Mask
+            plt.imshow(mask_1, cmap="gray")
+            plt.savefig(f"mask_3d_{b}_1.png", bbox_inches='tight')
             plt.close()
-            
 
+            plt.imshow(mask_2, cmap="gray")
+            plt.savefig(f"mask_3d_{b}_2.png", bbox_inches='tight')
+            plt.close()
 
-            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][1].device)
+            # Convert to PyTorch tensors
+            mask_tensor_1 = torch.tensor(mask_1, dtype=torch.bool, device=context['rep'][b][0].device)
+            mask_tensor_2 = torch.tensor(mask_2, dtype=torch.bool, device=context['rep'][b][1].device)
 
-            # Assign to context['rep'][0][1]
-            context['rep'][b][1] = mask_tensor
+            # Assign to context['rep']
+            context['rep'][b][0] = mask_tensor_1
+            context['rep'][b][1] = mask_tensor_2
+
 
         # with torch.cuda.amp.autocast(enabled=False):
 

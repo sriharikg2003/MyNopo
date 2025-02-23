@@ -188,12 +188,17 @@ class ModelWrapper(LightningModule):
             visualization_dump = {}
         gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
         
-
         representation_gaussians = batch["context"]["rep"]
-        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+
+
+
+        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.opacities = gaussians.opacities * gauss_mask
+
+        
         with torch.no_grad():
             gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
@@ -287,7 +292,6 @@ class ModelWrapper(LightningModule):
         total_loss = total_loss +  scale_loss + opacities_loss 
 
 
-        total_loss*=0.001
 
         # distillation
         if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
@@ -353,14 +357,19 @@ class ModelWrapper(LightningModule):
         masked_img = context_img * mask
         batch["context"]["image"][0] = masked_img
         representation_gaussians = batch["context"]["rep"]
+
+
         # gaussians.means[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.covariances[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.opacities[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.harmonics[ ~representation_gaussians.reshape(b,-1) ] = 0
-        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.opacities = gaussians.opacities * gauss_mask
+
+
         num_interpolated_views = 60
         color_interpolate_final_list = []
         for cam in range(total_views-1):
@@ -439,7 +448,7 @@ class ModelWrapper(LightningModule):
         # with 
 
 
-        exit()
+ 
 
 
 
