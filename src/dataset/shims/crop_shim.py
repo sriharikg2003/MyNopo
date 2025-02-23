@@ -151,16 +151,25 @@ def get_wavelet_superpixel_representation(images, wavelet='db1', level=1, percen
         
         mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
         
-        percentile =  0
-        threshold = np.percentile(mean_wavelet_values, percentile)
+        percentage = np.random.uniform(0,80)
+        left = int(len(sp_cord.keys()) * percentage / 100)
+        right = len(sp_cord.keys()) - left 
+        indices = np.argsort(mean_wavelet_values)
 
-        selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
+        selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
+        
         representation_gaussians = []
         for sp in selected_superpixels:
-            num_pixels = int(len(sp_cord[sp]) * percentage / 100)
+            num_pixels = int(len(sp_cord[sp]) * 10 / 100)
             representation_gaussians.extend(random.sample(sp_cord[sp], num_pixels))
 
-       
+        selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
+        # print( len(sp_cord.keys()))
+        # print("LEFT" , len(selected_superpixels))
+        # print("RIGHT " , len(selected_superpixels_high))
+        for sp in selected_superpixels_high:
+            num_pixels = int(len(sp_cord[sp]) * 90 / 100)
+            representation_gaussians.extend(random.sample(sp_cord[sp], num_pixels))
         mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)
 
 
@@ -168,25 +177,27 @@ def get_wavelet_superpixel_representation(images, wavelet='db1', level=1, percen
             for x, y in sp_cord[sp]:
                 mask[x, y] = False
                 # img[b][x, y, :] = 0  
-
+        for sp in selected_superpixels_high:
+            for x, y in sp_cord[sp]:
+                mask[x, y] = False
 
         for x, y in representation_gaussians:
             mask[x, y] = True
 
 
-        plt.figure(figsize=(6, 3))
-        plt.subplot(1, 2, 1)
-        plt.imshow(mark_boundaries(original_img, segments_slic))
-        plt.title("Superpixel Boundaries")
-        plt.axis("off")
+        # plt.figure(figsize=(6, 3))
+        # plt.subplot(1, 2, 1)
+        # plt.imshow(mark_boundaries(original_img, segments_slic))
+        # plt.title("Superpixel Boundaries")
+        # plt.axis("off")
 
-        plt.subplot(1, 2, 2)
-        plt.imshow(mask, cmap="gray")
-        plt.title("Mask")
-        plt.axis("off")
+        # plt.subplot(1, 2, 2)
+        # plt.imshow(mask, cmap="gray")
+        # plt.title("Mask")
+        # plt.axis("off")
 
-        plt.savefig(f"mask_{b}.png", bbox_inches='tight')
-        plt.close()
+        # plt.savefig(f"mask_{b}.png", bbox_inches='tight')
+        # plt.close()
 
         batch_masks.append(torch.tensor(mask))  
 
@@ -206,17 +217,7 @@ def apply_crop_shim_to_views(views: AnyViews, shape: tuple[int, int] , is_contex
     images, intrinsics = rescale_and_crop(views["image"], views["intrinsics"], shape)
     old_images = images.clone()
     if is_context:
-        # Patch
 
-        # (row_start1, row_end1, col_start1, col_end1), (row_start2, row_end2, col_start2, col_end2) = choose_and_get_patch_coordinates(images)
-
-        # return {
-        #     **views,
-        #     "image": images,
-        #     "intrinsics": intrinsics,
-        #     "patch" : (row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2)
-
-        # }
 
 
         # Super pixels

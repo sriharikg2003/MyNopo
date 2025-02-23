@@ -161,7 +161,7 @@ class ModelWrapper(LightningModule):
                             raise NotImplementedError
             batch = batch_combined
         batch: BatchedExample = self.data_shim(batch)
-        _, _, _, h, w = batch["target"]["image"].shape
+        b, t, _, h, w = batch["target"]["image"].shape
 
 
         # from torchvision.utils import save_image
@@ -191,10 +191,13 @@ class ModelWrapper(LightningModule):
         representation_gaussians = batch["context"]["rep"]
 
 
-        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+
+        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.opacities = gaussians.opacities * gauss_mask
+
         with torch.no_grad():
             gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
@@ -287,8 +290,8 @@ class ModelWrapper(LightningModule):
         
         total_loss = total_loss +  scale_loss + opacities_loss 
 
+        print("LOSS " , total_loss)
 
-        total_loss*=0.001
 
         # distillation
         if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
@@ -358,10 +361,14 @@ class ModelWrapper(LightningModule):
         # gaussians.covariances[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.opacities[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.harmonics[ ~representation_gaussians.reshape(b,-1) ] = 0
-        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.opacities = gaussians.opacities * gauss_mask
+
+
+        
         num_interpolated_views = 60
         color_interpolate_final_list = []
         for cam in range(total_views-1):
