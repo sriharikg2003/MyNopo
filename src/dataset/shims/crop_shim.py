@@ -129,7 +129,7 @@ import cv2
 def get_wavelet_superpixel_representation(images, wavelet='db1', level=1, percentage=10):
     img = images.permute(0, 2, 3, 1).cpu().numpy()
     batch_masks = []
-
+    percentage = np.random.uniform(0,80)
     for b in range(img.shape[0]): 
         original_img = img[b]
 
@@ -151,7 +151,7 @@ def get_wavelet_superpixel_representation(images, wavelet='db1', level=1, percen
         
         mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
         
-        percentage = np.random.uniform(0,80)
+        
         left = int(len(sp_cord.keys()) * percentage / 100)
         right = len(sp_cord.keys()) - left 
         indices = np.argsort(mean_wavelet_values)
