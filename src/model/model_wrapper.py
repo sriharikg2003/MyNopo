@@ -192,11 +192,11 @@ class ModelWrapper(LightningModule):
 
 
 
-            gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
-            gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
-            gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-            gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-            gaussians.opacities = gaussians.opacities * gauss_mask
+            # gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+            # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+            # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+            # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+            # gaussians.opacities = gaussians.opacities * gauss_mask
 
             with torch.no_grad():
                 gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
@@ -290,7 +290,10 @@ class ModelWrapper(LightningModule):
             
             total_loss = total_loss +  scale_loss + opacities_loss 
 
-            print("LOSS " , total_loss)
+            print("LOSS " , total_loss , scale_loss , opacities_loss)
+
+            if torch.isnan(total_loss):
+                total_loss = torch.zeros_like(total_loss)
 
 
             # distillation
@@ -324,6 +327,7 @@ class ModelWrapper(LightningModule):
 
             return total_loss
         except:
+            print("LOSS " , total_loss , scale_loss , opacities_loss)
             print("ERROR CATCHED")
             return 0
     def test_step(self, batch, batch_idx):
@@ -359,15 +363,17 @@ class ModelWrapper(LightningModule):
         masked_img = context_img * mask
         batch["context"]["image"][0] = masked_img
         representation_gaussians = batch["context"]["rep"]
+
         # gaussians.means[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.covariances[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.opacities[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.harmonics[ ~representation_gaussians.reshape(b,-1) ] = 0
-        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
-        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
-        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.opacities = gaussians.opacities * gauss_mask
+
+        # gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+        # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.opacities = gaussians.opacities * gauss_mask
 
 
         
@@ -683,10 +689,10 @@ class ModelWrapper(LightningModule):
 
         representation_gaussians = batch["context"]["rep"]
         gaussians_original, gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
-        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        # gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        # gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        # gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+        # gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
 
 
         output_ = self.decoder.forward(
