@@ -280,72 +280,112 @@ class ModelWrapper(LightningModule):
 
             
             total_loss = total_loss +  scale_loss + opacities_loss 
+            stereo_depth_loss = 0
+            if self.global_step >=1000:
+
+                """INCLUDE THE Stereo loss"""
+                print("Stereo " , self.global_step)
+
+                # Prepare camera poses for stereo views
+            
+                stereo_batch = copy.deepcopy(batch)
+                cam_for_stereo = stereo_batch['context']['extrinsics']
+                
+                
+                B, num_views = cam_for_stereo.shape[0], cam_for_stereo.shape[1]
+                
+                start_cam = cam_for_stereo[:, 0, :, :].clone()
+                
+                n_vals = torch.arange(1, num_views, device=cam_for_stereo.device).float().view(1, -1, 1)  # Shape: (1, N-1, 1)
+                # Define the perturbation range (e.g., ±10% of n_vals)
+                perturbation_range = 0.1 * n_vals  # 10% of each value
+
+                # Generate random noise within the range [-perturbation_range, +perturbation_range]
+                noise = (torch.rand_like(n_vals) * 2 - 1) * perturbation_range  # Uniform in [-range, +range]
+
+                # Apply stochasticity
+                n_vals = n_vals + noise  # Add stochastic variation within range
+                
+                
+                shifted_t = torch.cat([n_vals / 10, torch.zeros(1, num_views-1, 2, device=cam_for_stereo.device)], dim=-1)  # (1, N-1, 3)
+                
+                # rotation = start_cam[:, :3, :3].unsqueeze(1)  # Shape: (B, 1, 3, 3)
+                # translation = start_cam[:, :3, -1].unsqueeze(1)  # Shape: (B, 1, 3)
+
+                # new_translation =  translation + torch.matmul(rotation, shifted_t.unsqueeze(-1)).squeeze(-1)
+                # # print(f"{new_translation.shape=}")
+            
+                # cam_for_stereo[:, 1:, :3, -1] = new_translation
+                
+
+                """ Translation ?  """
+
+                t_values = shifted_t.squeeze(0).squeeze(0)  
+                transformation_matrix = torch.eye(4, device= cam_for_stereo.device)
+                transformation_matrix[:3, 3] = t_values
+                result = torch.matmul(cam_for_stereo[:, 1], transformation_matrix) 
+                cam_for_stereo[:,1,:,:] = result
+
+                # Ongoing NOPOSPLAT
+                output_stereo = self.decoder.forward(
+                    gaussians,
+                    cam_for_stereo,
+                    stereo_batch["context"]["intrinsics"],
+                    stereo_batch["context"]["near"],    
+                    stereo_batch["context"]["far"],
+                    (h, w),
+                    depth_mode=self.train_cfg.depth_mode,
+                    rep = representation_gaussians, 
+                    which_img=(True, True),
+                    original=False
+                )
+                
+                
+                # number of camera poses in stereo kept same as number of target views
+                
+                
+                depth_stereo = output_stereo.depth
+                color_interpolate_final = output_stereo.color.detach()
+                
+                stereo_batch['context']['extrinsics'] = cam_for_stereo
+                stereo_batch['context']['image'][:,1,:,:,:] = 2*output_stereo.color[:,1,:,:,:] -1 
+                
+
+                # Original Noposplat
+
+                with torch.no_grad():
+                    stero_gaussians_original , stero_gaussian_mod_ = self.encoder_( stereo_batch['context'] , self.global_step)
+
+                    output_stereo_original = self.decoder.forward(
+                        stero_gaussians_original,
+                        cam_for_stereo,
+                        stereo_batch["context"]["intrinsics"],
+                        stereo_batch["context"]["near"],    
+                        stereo_batch["context"]["far"],
+                        (h, w),
+                        depth_mode=self.train_cfg.depth_mode,
+                        rep = representation_gaussians, 
+                        which_img=(True, True),
+                        original=True
+                    )
+                # torchvision.utils.save_image(output_stereo_original.color[0], 'del0.png')
+                # torchvision.utils.save_image(output_stereo_original.color[1], 'del1.png')
+                depth_stereo_original = output_stereo_original.depth
+
+                depth_difference = depth_stereo_original -  depth_stereo
+                min_val = depth_difference.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
+                max_val = depth_difference.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
+
+
+                depth_difference_normalized = (depth_difference - min_val) / (max_val - min_val).clamp(min=1e-8)
+
+                stereo_depth_loss =  ((depth_difference_normalized)**2).mean()
+                total_loss  += stereo_depth_loss
 
 
 
-            """INCLUDE THE Stereo loss"""
-   
-        
-            # Prepare camera poses for stereo views
-        
-            stereo_batch = copy.deepcopy(batch)
-            cam_for_stereo = stereo_batch['context']['extrinsics']
-            
-            
-            B, num_views = cam_for_stereo.shape[0], cam_for_stereo.shape[1]
-            
-            start_cam = cam_for_stereo[:, 0, :, :].clone()
-            
-            n_vals = torch.arange(1, num_views, device=cam_for_stereo.device).float().view(1, -1, 1)  # Shape: (1, N-1, 1)
-            # Define the perturbation range (e.g., ±10% of n_vals)
-            perturbation_range = 0.1 * n_vals  # 10% of each value
 
-            # Generate random noise within the range [-perturbation_range, +perturbation_range]
-            noise = (torch.rand_like(n_vals) * 2 - 1) * perturbation_range  # Uniform in [-range, +range]
-
-            # Apply stochasticity
-            n_vals = n_vals + noise  # Add stochastic variation within range
-            
-            
-            shifted_t = torch.cat([n_vals / 10, torch.zeros(1, num_views-1, 2, device=cam_for_stereo.device)], dim=-1)  # (1, N-1, 3)
-            
-            rotation = start_cam[:, :3, :3].unsqueeze(1)  # Shape: (B, 1, 3, 3)
-            translation = start_cam[:, :3, -1].unsqueeze(1)  # Shape: (B, 1, 3)
-
-            new_translation =  translation + torch.matmul(rotation, shifted_t.unsqueeze(-1)).squeeze(-1)
-            print(f"{new_translation.shape=}")
-            cam_for_stereo[:, 1:, :3, -1] = new_translation.squeeze(1)
-            
-            output_stereo = self.decoder.forward(
-                gaussians,
-                cam_for_stereo,
-                stereo_batch["context"]["intrinsics"],
-                stereo_batch["context"]["near"],    
-                stereo_batch["context"]["far"],
-                (h, w),
-                depth_mode=self.train_cfg.depth_mode,
-                rep = representation_gaussians, 
-                which_img=(True, True)
-            )
-            
-            
-            # number of camera poses in stereo kept same as number of target views
-            
-            
-            depth_stereo = output_stereo.depth
-            color_interpolate_final = output_stereo.color.detach()
-            
-            stereo_batch['context']['extrinsics'] = cam_for_stereo
-            stereo_batch['context']['image'][:,1,:,:,:] = 2*output_stereo.color[:,1,:,:,:] -1 
-            
-
-            breakpoint()
-            
-
-
-
-
-            print("LOSS " , total_loss , scale_loss , opacities_loss)
+            print(self.global_step , " : LOSS " , total_loss , scale_loss , opacities_loss , stereo_depth_loss)
 
             if torch.isnan(total_loss):
                 total_loss = torch.zeros_like(total_loss)
@@ -384,7 +424,7 @@ class ModelWrapper(LightningModule):
         except Exception as e:  # Catch specific error details
             print("ERROR CAUGHT:", str(e))  # Print the actual error message
             print("LOSS:", total_loss, scale_loss, opacities_loss)
-            return 0
+            return None
 
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
@@ -899,7 +939,7 @@ class ModelWrapper(LightningModule):
         except Exception as e:  # Catch specific error details
 
             print("ERROR CAUGHT:", str(e))  # Print the actual error message
-            
+            return None
 
 
     @rank_zero_only
