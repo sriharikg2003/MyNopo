@@ -185,6 +185,8 @@ class ModelWrapper(LightningModule):
             visualization_dump = None
             if self.distiller is not None:
                 visualization_dump = {}
+
+            # Ongoing training model
             gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
             
 
@@ -675,172 +677,177 @@ class ModelWrapper(LightningModule):
                 f"scene = {batch['scene']}; "
                 f"context = {batch['context']['index'].tolist()}"
             )
+        try:
+            # Render Gaussians.
+            b, _, _, h, w = batch["target"]["image"].shape
 
-        # Render Gaussians.
-        b, _, _, h, w = batch["target"]["image"].shape
+            assert b == 1
+            visualization_dump = {}
+    
+            gaussians , gaussian_mod  = self.encoder(batch["context"],self.global_step,
+                visualization_dump=visualization_dump,
+            )
 
-        assert b == 1
-        visualization_dump = {}
- 
-        gaussians , gaussian_mod  = self.encoder(batch["context"],self.global_step,
-            visualization_dump=visualization_dump,
-        )
+            # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
 
-        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-
-        representation_gaussians = batch["context"]["rep"]
-        gaussians_original, gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
-        # gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        # gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        # gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        # gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+            representation_gaussians = batch["context"]["rep"]
+            gaussians_original, gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
+            # gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+            # gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+            # gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+            # gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
 
 
-        output_ = self.decoder.forward(
-                gaussians_original,
+            output_ = self.decoder.forward(
+                    gaussians_original,
+                    batch["target"]["extrinsics"],
+                    batch["target"]["intrinsics"],
+                    batch["target"]["near"],
+                    batch["target"]["far"],
+                    (h, w),
+                    depth_mode=self.train_cfg.depth_mode,
+                    rep = representation_gaussians, 
+                    which_img=(True, True),
+                    original= True
+                )
+            rgb_pred_original = output_.color[0]
+            depth_pred_original = vis_depth_map(output_.depth[0])
+
+
+
+
+
+
+            
+
+            # output = self.decoder.forward(
+            #     gaussians,
+            #     batch["target"]["extrinsics"],
+            #     batch["target"]["intrinsics"],
+            #     batch["target"]["near"],
+            #     batch["target"]["far"],
+            #     (h, w),
+            #     "depth",
+            #      patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
+            # )
+            output = self.decoder.forward(
+                gaussians,
                 batch["target"]["extrinsics"],
                 batch["target"]["intrinsics"],
                 batch["target"]["near"],
                 batch["target"]["far"],
                 (h, w),
-                depth_mode=self.train_cfg.depth_mode,
-                rep = representation_gaussians, 
-                which_img=(True, True),
-                original= True
+                "depth",
+                rep = representation_gaussians, which_img=(True, True),
+                original=False
             )
-        rgb_pred_original = output_.color[0]
-        depth_pred_original = vis_depth_map(output_.depth[0])
+            rgb_pred = output.color[0]
+            depth_pred = vis_depth_map(output.depth[0])
+
+            # direct depth from gaussian means (used for visualization only)
+            gaussian_means = visualization_dump["depth"][0].squeeze()
+            if gaussian_means.shape[-1] == 3:
+                gaussian_means = gaussian_means.mean(dim=-1)
+
+            # Compute validation metrics.
+            rgb_gt = batch["target"]["image"][0]
+            psnr = compute_psnr(rgb_gt, rgb_pred).mean()
+            self.log(f"val/psnr", psnr)
+            lpips = compute_lpips(rgb_gt, rgb_pred).mean()
+            self.log(f"val/lpips", lpips)
+            ssim = compute_ssim(rgb_gt, rgb_pred).mean()
+            self.log(f"val/ssim", ssim)
 
 
 
+            # Loss for Un Masked regions
 
 
-
-        
-
-        # output = self.decoder.forward(
-        #     gaussians,
-        #     batch["target"]["extrinsics"],
-        #     batch["target"]["intrinsics"],
-        #     batch["target"]["near"],
-        #     batch["target"]["far"],
-        #     (h, w),
-        #     "depth",
-        #      patch_loc= ( row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 ), which_img=(True, True)
-        # )
-        output = self.decoder.forward(
-            gaussians,
-            batch["target"]["extrinsics"],
-            batch["target"]["intrinsics"],
-            batch["target"]["near"],
-            batch["target"]["far"],
-            (h, w),
-            "depth",
-             rep = representation_gaussians, which_img=(True, True),
-             original=False
-        )
-        rgb_pred = output.color[0]
-        depth_pred = vis_depth_map(output.depth[0])
-
-        # direct depth from gaussian means (used for visualization only)
-        gaussian_means = visualization_dump["depth"][0].squeeze()
-        if gaussian_means.shape[-1] == 3:
-            gaussian_means = gaussian_means.mean(dim=-1)
-
-        # Compute validation metrics.
-        rgb_gt = batch["target"]["image"][0]
-        psnr = compute_psnr(rgb_gt, rgb_pred).mean()
-        self.log(f"val/psnr", psnr)
-        lpips = compute_lpips(rgb_gt, rgb_pred).mean()
-        self.log(f"val/lpips", lpips)
-        ssim = compute_ssim(rgb_gt, rgb_pred).mean()
-        self.log(f"val/ssim", ssim)
+            rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
+            scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
+            self.log("loss/scale_loss", scale_loss)
 
 
+            rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
+            opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
+            self.log("loss/opacities_loss", opacities_loss)
 
-        # Loss for Un Masked regions
+            
 
+            # Construct comparison image.
+            context_img = inverse_normalize(batch["context"]["image"][0])
+            patch_img = batch["context"]["rep"][0]
+            context_img_depth = vis_depth_map(gaussian_means)
 
-        rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
-        scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
-        self.log("loss/scale_loss", scale_loss)
-
-
-        rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
-        opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
-        self.log("loss/opacities_loss", opacities_loss)
-
-        
-
-        # Construct comparison image.
-        context_img = inverse_normalize(batch["context"]["image"][0])
-        patch_img = batch["context"]["rep"][0]
-        context_img_depth = vis_depth_map(gaussian_means)
-
-        context = []
-        for i in range(context_img.shape[0]):
-            context.append(context_img[i]*patch_img[i])
-            context.append(context_img_depth[i])
+            context = []
+            for i in range(context_img.shape[0]):
+                context.append(context_img[i]*patch_img[i])
+                context.append(context_img_depth[i])
 
 
-        comparison = hcat(
-            add_label(vcat(*context), "Context"),
-            add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
-            add_label(vcat(*rgb_pred), "Target (Prediction)"),
-            add_label(vcat(*rgb_pred_original) , "Original Noposplat")
-        )
-
-        if self.distiller is not None:
-            with torch.no_grad():
-                pseudo_gt1, pseudo_gt2 = self.distiller(batch["context"], False)
-            depth1, depth2 = pseudo_gt1['pts3d'][..., -1], pseudo_gt2['pts3d'][..., -1]
-            conf1, conf2 = pseudo_gt1['conf'], pseudo_gt2['conf']
-            depth_dust = torch.cat([depth1, depth2], dim=0)
-            depth_dust = vis_depth_map(depth_dust)
-            conf_dust = torch.cat([conf1, conf2], dim=0)
-            conf_dust = confidence_map(conf_dust)
-            dust_vis = torch.cat([depth_dust, conf_dust], dim=0)
-            comparison = hcat(add_label(vcat(*dust_vis), "Context"), comparison)
-
-        self.logger.log_image(
-            "comparison",
-            [prep_image(add_border(comparison))],
-            step=self.global_step,
-            caption=batch["scene"],
-        )
-
-        # Render projections and construct projection image.
-        # These are disabled for now, since RE10k scenes are effectively unbounded.
-        projections = hcat(
-                *render_projections(
-                    gaussians,
-                    256,
-                    extra_label="",
-                )[0]
+            comparison = hcat(
+                add_label(vcat(*context), "Context"),
+                add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
+                add_label(vcat(*rgb_pred), "Target (Prediction)"),
+                add_label(vcat(*rgb_pred_original) , "Original Noposplat")
             )
-        # self.logger.log_image(
-        #     "projection",
-        #     [prep_image(add_border(projections))],
-        #     step=self.global_step,
-        # )
 
-        # Draw cameras.
-        cameras = hcat(*render_cameras(batch, 256))
-        # self.logger.log_image(
-        #     "cameras", [prep_image(add_border(cameras))], step=self.global_step
-        # )
+            if self.distiller is not None:
+                with torch.no_grad():
+                    pseudo_gt1, pseudo_gt2 = self.distiller(batch["context"], False)
+                depth1, depth2 = pseudo_gt1['pts3d'][..., -1], pseudo_gt2['pts3d'][..., -1]
+                conf1, conf2 = pseudo_gt1['conf'], pseudo_gt2['conf']
+                depth_dust = torch.cat([depth1, depth2], dim=0)
+                depth_dust = vis_depth_map(depth_dust)
+                conf_dust = torch.cat([conf1, conf2], dim=0)
+                conf_dust = confidence_map(conf_dust)
+                dust_vis = torch.cat([depth_dust, conf_dust], dim=0)
+                comparison = hcat(add_label(vcat(*dust_vis), "Context"), comparison)
 
-        if self.encoder_visualizer is not None:
-            for k, image in self.encoder_visualizer.visualize(
-                batch["context"], self.global_step
-            ).items():
-                self.logger.log_image(k, [prep_image(image)], step=self.global_step)
+            self.logger.log_image(
+                "comparison",
+                [prep_image(add_border(comparison))],
+                step=self.global_step,
+                caption=batch["scene"],
+            )
 
-        # Run video validation step.
-        self.render_video_interpolation(batch)
-        self.render_video_wobble(batch)
-        if self.train_cfg.extended_visualization:
-            self.render_video_interpolation_exaggerated(batch)
+            # Render projections and construct projection image.
+            # These are disabled for now, since RE10k scenes are effectively unbounded.
+            projections = hcat(
+                    *render_projections(
+                        gaussians,
+                        256,
+                        extra_label="",
+                    )[0]
+                )
+            # self.logger.log_image(
+            #     "projection",
+            #     [prep_image(add_border(projections))],
+            #     step=self.global_step,
+            # )
+
+            # Draw cameras.
+            cameras = hcat(*render_cameras(batch, 256))
+            # self.logger.log_image(
+            #     "cameras", [prep_image(add_border(cameras))], step=self.global_step
+            # )
+
+            if self.encoder_visualizer is not None:
+                for k, image in self.encoder_visualizer.visualize(
+                    batch["context"], self.global_step
+                ).items():
+                    self.logger.log_image(k, [prep_image(image)], step=self.global_step)
+
+            # Run video validation step.
+            self.render_video_interpolation(batch)
+            self.render_video_wobble(batch)
+            if self.train_cfg.extended_visualization:
+                self.render_video_interpolation_exaggerated(batch)
+        except Exception as e:  # Catch specific error details
+
+            print("ERROR CAUGHT:", str(e))  # Print the actual error message
+            
+
 
     @rank_zero_only
     def render_video_wobble(self, batch: BatchedExample) -> None:
