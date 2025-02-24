@@ -4,7 +4,7 @@ defaults:
   - /dataset@_group_.dl3dv: dl3dv
   - override /model/encoder: noposplat
   - override /model/encoder/backbone: croco
-  - override /loss: [mse, lpips]
+  - override /loss: [mse, lpips, mask]
 
 wandb:
   name: dl3dv
@@ -16,7 +16,17 @@ model:
     pose_free: true
     intrinsics_embed_loc: encoder
     intrinsics_embed_type: token
-    pretrained_weights: './pretrained_weights/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth'
+
+    pretrained_weights: /workspace/raid/cdsbad/splat3r_try/NoPoSplat/pretrained_weights/mixRe10kDl3dv.ckpt
+  encoder_:
+    name: noposplat
+    gs_params_head_type: dpt_gs
+    pose_free: true
+    intrinsics_embed_loc: encoder_
+    intrinsics_embed_type: token
+    pretrained_weights: /workspace/raid/cdsbad/splat3r_try/NoPoSplat/pretrained_weights/mixRe10kDl3dv.ckpt
+  decoder:
+    make_scale_invariant: true
 
 dataset:
   dl3dv:
@@ -33,8 +43,8 @@ data_loader:
     batch_size: 16
 
 trainer:
-  max_steps: 18751
-  val_check_interval: 500
+  max_steps:  900_001
+  val_check_interval: 10
 
 checkpointing:
-  every_n_train_steps: 9375
+  every_n_train_steps: 10
