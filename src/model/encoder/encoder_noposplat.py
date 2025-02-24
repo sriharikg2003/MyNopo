@@ -329,12 +329,13 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         stacked_data = torch.cat(all_batches, dim=0).to(device)  # Shape: (Total_N, 6)
 
+
         stacked_data = stacked_data.unsqueeze(0)  # Shape: (1, Total_N, 6)
 
         kmeans = KMeans(n_clusters=300, mode='euclidean', verbose=0)
 
         start = time.time()
-        cluster_labels = kmeans.fit_predict(stacked_data)  # Now input shape is correct
+        cluster_labels = kmeans.fit_predict(stacked_data.view( context['image'].size(0),-1, 6))  # Now input shape is correct
         print(f"##CLUSTER {time.time() - start}")
 
         # Step 4: Split cluster labels back into batches

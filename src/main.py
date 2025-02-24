@@ -220,7 +220,7 @@ def train(cfg_dict: DictConfig):
             model_state_dict_ = encoder_.state_dict()
                      
             encoder_.load_state_dict(model_state_dict_, strict=False)
-            
+            encoder_.eval()
         elif 'state_dict' in ckpt_weights:
 
             print('Loading state_dict')
@@ -270,7 +270,7 @@ def train(cfg_dict: DictConfig):
 
             # Apply the state dict to encoder model
             encoder.load_state_dict(model_state, strict=False)
-
+            encoder_.eval()
 
 
 
