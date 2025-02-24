@@ -326,10 +326,11 @@ class ModelWrapper(LightningModule):
                 self.step_tracker.set_step(self.global_step)
 
             return total_loss
-        except:
-            print("LOSS " , total_loss , scale_loss , opacities_loss)
-            print("ERROR CATCHED")
+        except Exception as e:  # Catch specific error details
+            print("ERROR CAUGHT:", str(e))  # Print the actual error message
+            print("LOSS:", total_loss, scale_loss, opacities_loss)
             return 0
+
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
         
