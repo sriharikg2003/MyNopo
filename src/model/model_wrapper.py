@@ -331,7 +331,7 @@ class ModelWrapper(LightningModule):
         except Exception as e:  # Catch specific error details
             print("ERROR CAUGHT:", str(e))  # Print the actual error message
             print("LOSS:", total_loss, scale_loss, opacities_loss)
-            return 0
+            return None
 
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
@@ -846,7 +846,7 @@ class ModelWrapper(LightningModule):
         except Exception as e:  # Catch specific error details
 
             print("ERROR CAUGHT:", str(e))  # Print the actual error message
-            
+            return None
 
 
     @rank_zero_only
