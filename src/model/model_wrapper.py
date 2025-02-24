@@ -5,6 +5,7 @@ import time
 import moviepy.editor as mpy
 import torch
 import wandb
+import copy
 from einops import pack, rearrange, repeat
 from jaxtyping import Float
 from lightning.pytorch import LightningModule
@@ -164,21 +165,6 @@ class ModelWrapper(LightningModule):
             b, t, _, h, w = batch["target"]["image"].shape
 
 
-            # from torchvision.utils import save_image
-
-            # c0  = batch["context"]['image'][0,0,:,:,:]
-            # c1  = batch["context"]['image'][0,1,:,:,:]
-
-            # save_image(c0,'/data2/badrinath/NoPoSplat/c0.png')
-            # save_image(c1,'/data2/badrinath/NoPoSplat/c1.png')
-
-            # image0 = batch["target"]['image'][0,0,:,:,:]
-            # image1 = batch["target"]['image'][0,1,:,:,:]
-            # image2 = batch["target"]['image'][0,2,:,:,:]
-
-            # save_image(image0,'/data2/badrinath/NoPoSplat/t0.png')
-            # save_image(image1,'/data2/badrinath/NoPoSplat/t1.png')
-            # save_image(image2,'/data2/badrinath/NoPoSplat/t2.png')
 
 
             # Run the model.
@@ -186,7 +172,7 @@ class ModelWrapper(LightningModule):
             if self.distiller is not None:
                 visualization_dump = {}
 
-            # Ongoing training model
+            # Ongoing Noposplat 
             gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
             
 
@@ -200,6 +186,7 @@ class ModelWrapper(LightningModule):
             # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
             # gaussians.opacities = gaussians.opacities * gauss_mask
 
+            # Original Noposplat 
             with torch.no_grad():
                 gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
@@ -223,7 +210,7 @@ class ModelWrapper(LightningModule):
 
             
     
-
+            # Ongoing Noposplat 
             output = self.decoder.forward(
                 gaussians,
                 batch["target"]["extrinsics"],
@@ -238,6 +225,8 @@ class ModelWrapper(LightningModule):
             )
 
             # torchvision.utils.save_image(output.color[0] , f"new.png")
+
+
 
 
 
@@ -291,6 +280,70 @@ class ModelWrapper(LightningModule):
 
             
             total_loss = total_loss +  scale_loss + opacities_loss 
+
+
+
+            """INCLUDE THE Stereo loss"""
+   
+        
+            # Prepare camera poses for stereo views
+        
+            stereo_batch = copy.deepcopy(batch)
+            cam_for_stereo = stereo_batch['context']['extrinsics']
+            
+            
+            B, num_views = cam_for_stereo.shape[0], cam_for_stereo.shape[1]
+            
+            start_cam = cam_for_stereo[:, 0, :, :].clone()
+            
+            n_vals = torch.arange(1, num_views, device=cam_for_stereo.device).float().view(1, -1, 1)  # Shape: (1, N-1, 1)
+            # Define the perturbation range (e.g., ±10% of n_vals)
+            perturbation_range = 0.1 * n_vals  # 10% of each value
+
+            # Generate random noise within the range [-perturbation_range, +perturbation_range]
+            noise = (torch.rand_like(n_vals) * 2 - 1) * perturbation_range  # Uniform in [-range, +range]
+
+            # Apply stochasticity
+            n_vals = n_vals + noise  # Add stochastic variation within range
+            
+            
+            shifted_t = torch.cat([n_vals / 10, torch.zeros(1, num_views-1, 2, device=cam_for_stereo.device)], dim=-1)  # (1, N-1, 3)
+            
+            rotation = start_cam[:, :3, :3].unsqueeze(1)  # Shape: (B, 1, 3, 3)
+            translation = start_cam[:, :3, -1].unsqueeze(1)  # Shape: (B, 1, 3)
+
+            new_translation =  translation + torch.matmul(rotation, shifted_t.unsqueeze(-1)).squeeze(-1)
+            print(f"{new_translation.shape=}")
+            cam_for_stereo[:, 1:, :3, -1] = new_translation.squeeze(1)
+            
+            output_stereo = self.decoder.forward(
+                gaussians,
+                cam_for_stereo,
+                stereo_batch["context"]["intrinsics"],
+                stereo_batch["context"]["near"],    
+                stereo_batch["context"]["far"],
+                (h, w),
+                depth_mode=self.train_cfg.depth_mode,
+                rep = representation_gaussians, 
+                which_img=(True, True)
+            )
+            
+            
+            # number of camera poses in stereo kept same as number of target views
+            
+            
+            depth_stereo = output_stereo.depth
+            color_interpolate_final = output_stereo.color.detach()
+            
+            stereo_batch['context']['extrinsics'] = cam_for_stereo
+            stereo_batch['context']['image'][:,1,:,:,:] = 2*output_stereo.color[:,1,:,:,:] -1 
+            
+
+            breakpoint()
+            
+
+
+
 
             print("LOSS " , total_loss , scale_loss , opacities_loss)
 
