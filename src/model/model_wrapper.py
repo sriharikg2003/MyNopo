@@ -281,6 +281,7 @@ class ModelWrapper(LightningModule):
             
             total_loss = total_loss +  scale_loss + opacities_loss 
             stereo_depth_loss = 0
+            
             if self.global_step >=1000:
 
                 """INCLUDE THE Stereo loss"""
@@ -323,9 +324,9 @@ class ModelWrapper(LightningModule):
                 t_values = shifted_t.squeeze(0).squeeze(0)  
                 transformation_matrix = torch.eye(4, device= cam_for_stereo.device)
                 transformation_matrix[:3, 3] = t_values
-                result = torch.matmul(cam_for_stereo[:, 1], transformation_matrix) 
-                cam_for_stereo[:,1,:,:] = result
 
+                result = torch.matmul(cam_for_stereo[:,1:], transformation_matrix) 
+                cam_for_stereo[:,1:,:,:] = result
                 # Ongoing NOPOSPLAT
                 output_stereo = self.decoder.forward(
                     gaussians,
@@ -368,6 +369,8 @@ class ModelWrapper(LightningModule):
                         which_img=(True, True),
                         original=True
                     )
+
+
                 # torchvision.utils.save_image(output_stereo_original.color[0], 'del0.png')
                 # torchvision.utils.save_image(output_stereo_original.color[1], 'del1.png')
                 depth_stereo_original = output_stereo_original.depth
@@ -381,7 +384,6 @@ class ModelWrapper(LightningModule):
 
                 stereo_depth_loss =  ((depth_difference_normalized)**2).mean()
                 total_loss  += stereo_depth_loss
-
 
 
 
