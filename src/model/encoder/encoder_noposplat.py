@@ -335,7 +335,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             tensor_data = tensor_data.unsqueeze(0)  # Adds batch dimension (1, N, D)
 
             kmeans = KMeans(n_clusters=300, mode='euclidean', verbose=0)
-
+    
             # Perform clustering
             start  = time.time()
             cluster_result = kmeans.fit_predict(tensor_data)  # Returns a ClusterResult object
