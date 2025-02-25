@@ -345,46 +345,63 @@ class ModelWrapper(LightningModule):
                 # number of camera poses in stereo kept same as number of target views
                 
                 
-                depth_stereo = output_stereo.depth
+                depth_stereo =  vis_depth_map ( output_stereo.depth)
                 color_interpolate_final = output_stereo.color.detach()
                 
                 stereo_batch['context']['extrinsics'] = cam_for_stereo
-                stereo_batch['context']['image'][:,1,:,:,:] = 2*output_stereo.color[:,1,:,:,:] -1 
+                stereo_batch['context']['image'][:,:,:,:,:] = 2*output_stereo.color[:,:,:,:,:] -1 
                 
 
                 # Original Noposplat
 
                 with torch.no_grad():
-                    stero_gaussians_original , stero_gaussian_mod_ = self.encoder_( stereo_batch['context'] , self.global_step)
+                    # stero_gaussians_original , stero_gaussian_mod_ = self.encoder_.backbone( stereo_batch['context'] , self.global_step)
+                    dec1, dec2, shape1, shape2, view1, view2   = self.encoder_.backbone(stereo_batch['context'], return_views=True)
+                    res1 = self.encoder_._downstream_head(1, [tok.float() for tok in dec1]   , shape1)
+                    res2 = self.encoder_._downstream_head(2, [tok.float() for tok in dec2]  , shape2)
+                    pts3d1 = res1['pts3d']
+                    pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
+                    pts3d2 = res2['pts3d']
+                    pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
 
-                    output_stereo_original = self.decoder.forward(
-                        stero_gaussians_original,
-                        cam_for_stereo,
-                        stereo_batch["context"]["intrinsics"],
-                        stereo_batch["context"]["near"],    
-                        stereo_batch["context"]["far"],
-                        (h, w),
-                        depth_mode=self.train_cfg.depth_mode,
-                        rep = representation_gaussians, 
-                        which_img=(True, True),
-                        original=True
-                    )
+
+                    pts3d1 = res1['pts3d']
+                    pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
+                    pts3d2 = res2['pts3d']
+                    pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
+                    pts_all = torch.stack((pts3d1, pts3d2), dim=1)
+                    pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
+
+                    
+                    depths = pts_all[..., -1].unsqueeze(-1)
+
+                    
+
+
+                    # output_stereo_original = self.decoder.forward(
+                    #     stero_gaussians_original,
+                    #     cam_for_stereo,
+                    #     stereo_batch["context"]["intrinsics"],
+                    #     stereo_batch["context"]["near"],    
+                    #     stereo_batch["context"]["far"],
+                    #     (h, w),
+                    #     depth_mode=self.train_cfg.depth_mode,
+                    #     rep = representation_gaussians, 
+                    #     which_img=(True, True),
+                    #     original=True
+                    # )
 
 
                 # torchvision.utils.save_image(output_stereo_original.color[0], 'del0.png')
                 # torchvision.utils.save_image(output_stereo_original.color[1], 'del1.png')
-                depth_stereo_original = output_stereo_original.depth
-
-                depth_difference = depth_stereo_original -  depth_stereo
-                min_val = depth_difference.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
-                max_val = depth_difference.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
 
 
-                depth_difference_normalized = (depth_difference - min_val) / (max_val - min_val).clamp(min=1e-8)
+                depth_difference =  vis_depth_map(depths.view(b,2,256,256)) -  depth_stereo
 
-                stereo_depth_loss =  ((depth_difference_normalized)**2).mean()
-                total_loss  += stereo_depth_loss
 
+                stereo_depth_loss =  ((depth_difference)**2).mean()
+                total_loss  += 0.01*stereo_depth_loss
+                
 
 
             print(self.global_step , " : LOSS " , total_loss , scale_loss , opacities_loss , stereo_depth_loss)
@@ -550,7 +567,7 @@ class ModelWrapper(LightningModule):
         # with 
 
 
-        exit()
+
 
 
 
