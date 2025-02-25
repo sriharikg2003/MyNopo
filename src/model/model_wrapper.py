@@ -421,7 +421,7 @@ class ModelWrapper(LightningModule):
 
             return total_loss
         except Exception as e:  # Catch specific error details
-            print("ERROR CAUGHT:", str(e))  # Print the actual error message
+            print("ERROR CAUGHT TRAIN:", str(e))  # Print the actual error message
             print("LOSS:", total_loss, scale_loss, opacities_loss)
             return None
 
@@ -937,7 +937,7 @@ class ModelWrapper(LightningModule):
                 self.render_video_interpolation_exaggerated(batch)
         except Exception as e:  # Catch specific error details
 
-            print("ERROR CAUGHT:", str(e))  # Print the actual error message
+            print("ERROR CAUGHT VALIDATION:", str(e))  # Print the actual error message
             return None
 
 
