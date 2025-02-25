@@ -269,17 +269,17 @@ class ModelWrapper(LightningModule):
             # Loss for Un Masked regions
 
 
-            rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
-            scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
-            self.log("loss/scale_loss", scale_loss)
+            # rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
+            # scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
+            # self.log("loss/scale_loss", scale_loss)
 
 
-            rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
-            opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
-            self.log("loss/opacities_loss", opacities_loss)
+            # rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
+            # opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
+            # self.log("loss/opacities_loss", opacities_loss)
 
             
-            total_loss = total_loss +  scale_loss + opacities_loss 
+            # total_loss = total_loss +  scale_loss + opacities_loss 
             stereo_depth_loss = 0
             
             if self.global_step >=1000:
@@ -400,11 +400,11 @@ class ModelWrapper(LightningModule):
 
 
                 stereo_depth_loss =  ((depth_difference)**2).mean()
-                total_loss  += 0.01*stereo_depth_loss
+                total_loss  += 0.001*stereo_depth_loss
                 
 
 
-            print(self.global_step , " : LOSS " , total_loss , scale_loss , opacities_loss , stereo_depth_loss)
+            print(self.global_step , " : LOSS " ,  stereo_depth_loss)
 
 
             # distillation
@@ -439,7 +439,7 @@ class ModelWrapper(LightningModule):
             return total_loss
         except Exception as e:  # Catch specific error details
             print("ERROR CAUGHT TRAIN:", str(e))  # Print the actual error message
-            print("LOSS:", total_loss, scale_loss, opacities_loss)
+            print("LOSS:", total_loss)
             return None
 
     def test_step(self, batch, batch_idx):
@@ -873,13 +873,13 @@ class ModelWrapper(LightningModule):
 
 
             rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
-            scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
-            self.log("loss/scale_loss", scale_loss)
+            # scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
+            # self.log("loss/scale_loss", scale_loss)
 
 
             rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
-            opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
-            self.log("loss/opacities_loss", opacities_loss)
+            # opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
+            # self.log("loss/opacities_loss", opacities_loss)
 
             
 
