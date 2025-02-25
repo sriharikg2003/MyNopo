@@ -389,9 +389,6 @@ class ModelWrapper(LightningModule):
 
             print(self.global_step , " : LOSS " , total_loss , scale_loss , opacities_loss , stereo_depth_loss)
 
-            if torch.isnan(total_loss):
-                total_loss = torch.zeros_like(total_loss)
-
 
             # distillation
             if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
