@@ -294,8 +294,7 @@ class ModelWrapper(LightningModule):
 
             print("LOSS " , total_loss , scale_loss , opacities_loss)
 
-            if torch.isnan(total_loss):
-                total_loss = torch.zeros_like(total_loss)
+
 
 
             # distillation
@@ -329,7 +328,7 @@ class ModelWrapper(LightningModule):
 
             return total_loss
         except Exception as e:  # Catch specific error details
-            print("ERROR CAUGHT:", str(e))  # Print the actual error message
+            print("ERROR CAUGHT TRAIN:", str(e))  # Print the actual error message
             print("LOSS:", total_loss, scale_loss, opacities_loss)
             return None
 
