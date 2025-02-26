@@ -145,302 +145,299 @@ class ModelWrapper(LightningModule):
 
     def training_step(self, batch, batch_idx):
         # combine batch from different dataloaders
-        try:
-            if isinstance(batch, list):
-                batch_combined = None
-                for batch_per_dl in batch:
-                    if batch_combined is None:
-                        batch_combined = batch_per_dl
-                    else:
-                        for k in batch_combined.keys():
-                            if isinstance(batch_combined[k], list):
-                                batch_combined[k] += batch_per_dl[k]
-                            elif isinstance(batch_combined[k], dict):
-                                for kk in batch_combined[k].keys():
-                                    batch_combined[k][kk] = torch.cat([batch_combined[k][kk], batch_per_dl[k][kk]], dim=0)
-                            else:
-                                raise NotImplementedError
-                batch = batch_combined
-            batch: BatchedExample = self.data_shim(batch)
-            b, t, _, h, w = batch["target"]["image"].shape
+
+        if isinstance(batch, list):
+            batch_combined = None
+            for batch_per_dl in batch:
+                if batch_combined is None:
+                    batch_combined = batch_per_dl
+                else:
+                    for k in batch_combined.keys():
+                        if isinstance(batch_combined[k], list):
+                            batch_combined[k] += batch_per_dl[k]
+                        elif isinstance(batch_combined[k], dict):
+                            for kk in batch_combined[k].keys():
+                                batch_combined[k][kk] = torch.cat([batch_combined[k][kk], batch_per_dl[k][kk]], dim=0)
+                        else:
+                            raise NotImplementedError
+            batch = batch_combined
+        batch: BatchedExample = self.data_shim(batch)
+        b, t, _, h, w = batch["target"]["image"].shape
 
 
 
 
-            # Run the model.
-            visualization_dump = None
-            if self.distiller is not None:
-                visualization_dump = {}
+        # Run the model.
+        visualization_dump = None
+        if self.distiller is not None:
+            visualization_dump = {}
 
-            # Ongoing Noposplat 
-            gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
-            
+        # Ongoing Noposplat 
+        gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
+        
 
-            representation_gaussians = batch["context"]["rep"]
-
-
-
-            # gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
-            # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
-            # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-            # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-            # gaussians.opacities = gaussians.opacities * gauss_mask
-
-            # Original Noposplat 
-            with torch.no_grad():
-                gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
-
-                output_ = self.decoder.forward(
-                        gaussians_original,
-                        batch["target"]["extrinsics"],
-                        batch["target"]["intrinsics"],
-                        batch["target"]["near"],
-                        batch["target"]["far"],
-                        (h, w),
-                        depth_mode=self.train_cfg.depth_mode,
-                        rep = representation_gaussians, 
-                        which_img=(True, True),
-                        original= True
-                    )
-
-
-            # torchvision.utils.save_image(output_.color[0] , f"orig.png")
-            # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-            
-
-            
-    
-            # Ongoing Noposplat 
-            output = self.decoder.forward(
-                gaussians,
-                batch["target"]["extrinsics"],
-                batch["target"]["intrinsics"],
-                batch["target"]["near"],
-                batch["target"]["far"],
-                (h, w),
-                depth_mode=self.train_cfg.depth_mode,
-                rep = representation_gaussians, 
-                which_img=(True, True),
-                original= False
-            )
-
-            # torchvision.utils.save_image(output.color[0] , f"new.png")
+        representation_gaussians = batch["context"]["rep"]
 
 
 
+        # gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+        # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.opacities = gaussians.opacities * gauss_mask
 
+        # Original Noposplat 
+        with torch.no_grad():
+            gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
-
-            target_gt = batch["target"]["image"]
-
-            # Compute metrics.
-            psnr_probabilistic = compute_psnr(
-                rearrange(target_gt, "b v c h w -> (b v) c h w"),
-                rearrange(output.color, "b v c h w -> (b v) c h w"),
-            )
-            self.log("train/psnr_probabilistic", psnr_probabilistic.mean())
-
-            # Compute and log loss.
-            total_loss = 0
-            for loss_fn in self.losses[:-1]:
-                loss = loss_fn.forward(output, batch, gaussians, self.global_step)
-                self.log(f"loss/{loss_fn.name}", loss)
-                total_loss = total_loss + loss
-
-
-            # Loss for Masked regions
-            # diag_indices = torch.arange(3)
-            # diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
-            # rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
-            # mask_false = ~rep
-            # l1 =  (diagonal_entries[mask_false]**2).mean()
-    
-            # total_loss = total_loss + l1
-
-
-            # l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
-            # total_loss = total_loss + l2
-            # # print(f"Mask loss : {l1+l2}")
-            # self.log(f"loss/mask", l1+l2)
-
-
-
-
-            # Loss for Un Masked regions
-
-
-            # rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
-            # scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
-            # self.log("loss/scale_loss", scale_loss)
-
-
-            # rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
-            # opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
-            # self.log("loss/opacities_loss", opacities_loss)
-
-            
-            # total_loss = total_loss +  scale_loss + opacities_loss 
-            stereo_depth_loss = 0
-            
-            if self.global_step >=1000:
-
-                """INCLUDE THE Stereo loss"""
-                print("Stereo " , self.global_step)
-
-                # Prepare camera poses for stereo views
-            
-                stereo_batch = copy.deepcopy(batch)
-                cam_for_stereo = stereo_batch['context']['extrinsics']
-                
-                
-                B, num_views = cam_for_stereo.shape[0], cam_for_stereo.shape[1]
-                
-                start_cam = cam_for_stereo[:, 0, :, :].clone()
-                
-                n_vals = torch.arange(1, num_views, device=cam_for_stereo.device).float().view(1, -1, 1)  # Shape: (1, N-1, 1)
-                # Define the perturbation range (e.g., ±10% of n_vals)
-                perturbation_range = 0.1 * n_vals  # 10% of each value
-
-                # Generate random noise within the range [-perturbation_range, +perturbation_range]
-                noise = (torch.rand_like(n_vals) * 2 - 1) * perturbation_range  # Uniform in [-range, +range]
-
-                # Apply stochasticity
-                n_vals = n_vals + noise  # Add stochastic variation within range
-                
-                
-                shifted_t = torch.cat([n_vals / 10, torch.zeros(1, num_views-1, 2, device=cam_for_stereo.device)], dim=-1)  # (1, N-1, 3)
-                
-                # rotation = start_cam[:, :3, :3].unsqueeze(1)  # Shape: (B, 1, 3, 3)
-                # translation = start_cam[:, :3, -1].unsqueeze(1)  # Shape: (B, 1, 3)
-
-                # new_translation =  translation + torch.matmul(rotation, shifted_t.unsqueeze(-1)).squeeze(-1)
-                # # print(f"{new_translation.shape=}")
-            
-                # cam_for_stereo[:, 1:, :3, -1] = new_translation
-                
-
-                """ Translation ?  """
-
-                t_values = shifted_t.squeeze(0).squeeze(0)  
-                transformation_matrix = torch.eye(4, device= cam_for_stereo.device)
-                transformation_matrix[:3, 3] = t_values
-
-                result = torch.matmul(cam_for_stereo[:,1:], transformation_matrix) 
-                cam_for_stereo[:,1:,:,:] = result
-                # Ongoing NOPOSPLAT
-                output_stereo = self.decoder.forward(
-                    gaussians,
-                    cam_for_stereo,
-                    stereo_batch["context"]["intrinsics"],
-                    stereo_batch["context"]["near"],    
-                    stereo_batch["context"]["far"],
+            output_ = self.decoder.forward(
+                    gaussians_original,
+                    batch["target"]["extrinsics"],
+                    batch["target"]["intrinsics"],
+                    batch["target"]["near"],
+                    batch["target"]["far"],
                     (h, w),
                     depth_mode=self.train_cfg.depth_mode,
                     rep = representation_gaussians, 
                     which_img=(True, True),
-                    original=False
+                    original= True
                 )
+
+
+        # torchvision.utils.save_image(output_.color[0] , f"orig.png")
+        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
+        
+
+        
+
+        # Ongoing Noposplat 
+        output = self.decoder.forward(
+            gaussians,
+            batch["target"]["extrinsics"],
+            batch["target"]["intrinsics"],
+            batch["target"]["near"],
+            batch["target"]["far"],
+            (h, w),
+            depth_mode=self.train_cfg.depth_mode,
+            rep = representation_gaussians, 
+            which_img=(True, True),
+            original= False
+        )
+
+        # torchvision.utils.save_image(output.color[0] , f"new.png")
+
+
+
+
+
+
+        target_gt = batch["target"]["image"]
+
+        # Compute metrics.
+        psnr_probabilistic = compute_psnr(
+            rearrange(target_gt, "b v c h w -> (b v) c h w"),
+            rearrange(output.color, "b v c h w -> (b v) c h w"),
+        )
+        self.log("train/psnr_probabilistic", psnr_probabilistic.mean())
+
+        # Compute and log loss.
+        total_loss = 0
+        for loss_fn in self.losses[:-1]:
+            loss = loss_fn.forward(output, batch, gaussians, self.global_step)
+            self.log(f"loss/{loss_fn.name}", loss)
+            total_loss = total_loss + loss
+
+
+        # Loss for Masked regions
+        # diag_indices = torch.arange(3)
+        # diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
+        # rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
+        # mask_false = ~rep
+        # l1 =  (diagonal_entries[mask_false]**2).mean()
+
+        # total_loss = total_loss + l1
+
+
+        # l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
+        # total_loss = total_loss + l2
+        # # print(f"Mask loss : {l1+l2}")
+        # self.log(f"loss/mask", l1+l2)
+
+
+
+
+        # Loss for Un Masked regions
+
+
+        # rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
+        # scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
+        # self.log("loss/scale_loss", scale_loss)
+
+
+        # rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
+        # opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
+        # self.log("loss/opacities_loss", opacities_loss)
+
+        
+        # total_loss = total_loss +  scale_loss + opacities_loss 
+        stereo_depth_loss = 0
+        
+        if self.global_step >=2000:
+
+            """INCLUDE THE Stereo loss"""
+            print("Stereo " , self.global_step)
+
+            # Prepare camera poses for stereo views
+        
+            stereo_batch = copy.deepcopy(batch)
+            cam_for_stereo = stereo_batch['context']['extrinsics']
+            
+            
+            B, num_views = cam_for_stereo.shape[0], cam_for_stereo.shape[1]
+            
+            start_cam = cam_for_stereo[:, 0, :, :].clone()
+            
+            n_vals = torch.arange(1, num_views, device=cam_for_stereo.device).float().view(1, -1, 1)  # Shape: (1, N-1, 1)
+            # Define the perturbation range (e.g., ±10% of n_vals)
+            perturbation_range = 0.1 * n_vals  # 10% of each value
+
+            # Generate random noise within the range [-perturbation_range, +perturbation_range]
+            noise = (torch.rand_like(n_vals) * 2 - 1) * perturbation_range  # Uniform in [-range, +range]
+
+            # Apply stochasticity
+            n_vals = n_vals + noise  # Add stochastic variation within range
+            
+            
+            shifted_t = torch.cat([n_vals / 10, torch.zeros(1, num_views-1, 2, device=cam_for_stereo.device)], dim=-1)  # (1, N-1, 3)
+            
+            # rotation = start_cam[:, :3, :3].unsqueeze(1)  # Shape: (B, 1, 3, 3)
+            # translation = start_cam[:, :3, -1].unsqueeze(1)  # Shape: (B, 1, 3)
+
+            # new_translation =  translation + torch.matmul(rotation, shifted_t.unsqueeze(-1)).squeeze(-1)
+            # # print(f"{new_translation.shape=}")
+        
+            # cam_for_stereo[:, 1:, :3, -1] = new_translation
+            
+
+            """ Translation ?  """
+
+            t_values = shifted_t.squeeze(0).squeeze(0)  
+            transformation_matrix = torch.eye(4, device= cam_for_stereo.device)
+            transformation_matrix[:3, 3] = t_values
+
+            result = torch.matmul(cam_for_stereo[:,1:], transformation_matrix) 
+            cam_for_stereo[:,1:,:,:] = result
+            # Ongoing NOPOSPLAT
+            output_stereo = self.decoder.forward(
+                gaussians,
+                cam_for_stereo,
+                stereo_batch["context"]["intrinsics"],
+                stereo_batch["context"]["near"],    
+                stereo_batch["context"]["far"],
+                (h, w),
+                depth_mode=self.train_cfg.depth_mode,
+                rep = representation_gaussians, 
+                which_img=(True, True),
+                original=False
+            )
+            
+            
+            # number of camera poses in stereo kept same as number of target views
+            
+            
+            depth_stereo =  vis_depth_map ( output_stereo.depth)
+            color_interpolate_final = output_stereo.color.detach()
+            
+            stereo_batch['context']['extrinsics'] = cam_for_stereo
+            stereo_batch['context']['image'][:,:,:,:,:] = 2*output_stereo.color[:,:,:,:,:] -1 
+            
+
+            # Original Noposplat
+
+            with torch.no_grad():
+                # stero_gaussians_original , stero_gaussian_mod_ = self.encoder_.backbone( stereo_batch['context'] , self.global_step)
+                dec1, dec2, shape1, shape2, view1, view2   = self.encoder_.backbone(stereo_batch['context'], return_views=True)
+                res1 = self.encoder_._downstream_head(1, [tok.float() for tok in dec1]   , shape1)
+                res2 = self.encoder_._downstream_head(2, [tok.float() for tok in dec2]  , shape2)
+                pts3d1 = res1['pts3d']
+                pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
+                pts3d2 = res2['pts3d']
+                pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
+
+
+                pts3d1 = res1['pts3d']
+                pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
+                pts3d2 = res2['pts3d']
+                pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
+                pts_all = torch.stack((pts3d1, pts3d2), dim=1)
+                pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
+
                 
-                
-                # number of camera poses in stereo kept same as number of target views
-                
-                
-                depth_stereo =  vis_depth_map ( output_stereo.depth)
-                color_interpolate_final = output_stereo.color.detach()
-                
-                stereo_batch['context']['extrinsics'] = cam_for_stereo
-                stereo_batch['context']['image'][:,:,:,:,:] = 2*output_stereo.color[:,:,:,:,:] -1 
-                
+                depths = pts_all[..., -1].unsqueeze(-1)
 
-                # Original Noposplat
-
-                with torch.no_grad():
-                    # stero_gaussians_original , stero_gaussian_mod_ = self.encoder_.backbone( stereo_batch['context'] , self.global_step)
-                    dec1, dec2, shape1, shape2, view1, view2   = self.encoder_.backbone(stereo_batch['context'], return_views=True)
-                    res1 = self.encoder_._downstream_head(1, [tok.float() for tok in dec1]   , shape1)
-                    res2 = self.encoder_._downstream_head(2, [tok.float() for tok in dec2]  , shape2)
-                    pts3d1 = res1['pts3d']
-                    pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
-                    pts3d2 = res2['pts3d']
-                    pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
-
-
-                    pts3d1 = res1['pts3d']
-                    pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
-                    pts3d2 = res2['pts3d']
-                    pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
-                    pts_all = torch.stack((pts3d1, pts3d2), dim=1)
-                    pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
-
-                    
-                    depths = pts_all[..., -1].unsqueeze(-1)
-
-                    
-
-
-                    # output_stereo_original = self.decoder.forward(
-                    #     stero_gaussians_original,
-                    #     cam_for_stereo,
-                    #     stereo_batch["context"]["intrinsics"],
-                    #     stereo_batch["context"]["near"],    
-                    #     stereo_batch["context"]["far"],
-                    #     (h, w),
-                    #     depth_mode=self.train_cfg.depth_mode,
-                    #     rep = representation_gaussians, 
-                    #     which_img=(True, True),
-                    #     original=True
-                    # )
-
-
-                # torchvision.utils.save_image(output_stereo_original.color[0], 'del0.png')
-                # torchvision.utils.save_image(output_stereo_original.color[1], 'del1.png')
-
-
-                depth_difference =  vis_depth_map(depths.view(b,2,256,256)) -  depth_stereo
-
-
-                stereo_depth_loss =  ((depth_difference)**2).mean()
-                total_loss  += 0.001*stereo_depth_loss
                 
 
 
-            print(self.global_step , " : LOSS " ,  stereo_depth_loss)
+                # output_stereo_original = self.decoder.forward(
+                #     stero_gaussians_original,
+                #     cam_for_stereo,
+                #     stereo_batch["context"]["intrinsics"],
+                #     stereo_batch["context"]["near"],    
+                #     stereo_batch["context"]["far"],
+                #     (h, w),
+                #     depth_mode=self.train_cfg.depth_mode,
+                #     rep = representation_gaussians, 
+                #     which_img=(True, True),
+                #     original=True
+                # )
 
 
-            # distillation
-            if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
-                with torch.no_grad():
-                    pseudo_gt1, pseudo_gt2 = self.distiller(batch["context"], False)
-                distillation_loss = self.distiller_loss(pseudo_gt1['pts3d'], pseudo_gt2['pts3d'],
-                                                        visualization_dump['means'][:, 0].squeeze(-2),
-                                                        visualization_dump['means'][:, 1].squeeze(-2),
-                                                        pseudo_gt1['conf'], pseudo_gt2['conf'], disable_view1=False) * 0.1
-                self.log("loss/distillation_loss", distillation_loss)
-                total_loss = total_loss + distillation_loss
+            # torchvision.utils.save_image(output_stereo_original.color[0], 'del0.png')
+            # torchvision.utils.save_image(output_stereo_original.color[1], 'del1.png')
 
-            self.log("loss/total", total_loss)
 
-            if (
-                self.global_rank == 0
-                and self.global_step % self.train_cfg.print_log_every_n_steps == 0
-            ):
-                print(
-                    f"train step {self.global_step}; "
-                    f"scene = {[x[:20] for x in batch['scene']]}; "
-                    f"context = {batch['context']['index'].tolist()}; "
-                    f"loss = {total_loss:.6f}"
-                )
-            self.log("info/global_step", self.global_step)  # hack for ckpt monitor
+            depth_difference =  vis_depth_map(depths.view(b,2,256,256)) -  depth_stereo
 
-            # Tell the data loader processes about the current step.
-            if self.step_tracker is not None:
-                self.step_tracker.set_step(self.global_step)
 
-            return total_loss
-        except Exception as e:  # Catch specific error details
-            print("ERROR CAUGHT TRAIN:", str(e))  # Print the actual error message
-            print("LOSS:", total_loss)
-            return None
+            stereo_depth_loss =  ((depth_difference)**2).mean()
+            total_loss  += 0.001*stereo_depth_loss
+            
+
+
+        print(self.global_step , " TRAIN : LOSS " ,  stereo_depth_loss)
+
+
+        # distillation
+        if self.distiller is not None and self.global_step <= self.train_cfg.distill_max_steps:
+            with torch.no_grad():
+                pseudo_gt1, pseudo_gt2 = self.distiller(batch["context"], False)
+            distillation_loss = self.distiller_loss(pseudo_gt1['pts3d'], pseudo_gt2['pts3d'],
+                                                    visualization_dump['means'][:, 0].squeeze(-2),
+                                                    visualization_dump['means'][:, 1].squeeze(-2),
+                                                    pseudo_gt1['conf'], pseudo_gt2['conf'], disable_view1=False) * 0.1
+            self.log("loss/distillation_loss", distillation_loss)
+            total_loss = total_loss + distillation_loss
+
+        self.log("loss/total", total_loss)
+
+        if (
+            self.global_rank == 0
+            and self.global_step % self.train_cfg.print_log_every_n_steps == 0
+        ):
+            print(
+                f"train step {self.global_step}; "
+                f"scene = {[x[:20] for x in batch['scene']]}; "
+                f"context = {batch['context']['index'].tolist()}; "
+                f"loss = {total_loss:.6f}"
+            )
+        self.log("info/global_step", self.global_step)  # hack for ckpt monitor
+
+        # Tell the data loader processes about the current step.
+        if self.step_tracker is not None:
+            self.step_tracker.set_step(self.global_step)
+
+        return total_loss
+
 
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
