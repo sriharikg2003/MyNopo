@@ -68,7 +68,7 @@ def train(cfg_dict: DictConfig):
             log_model=False,
             save_dir=output_dir,
             config=OmegaConf.to_container(cfg_dict),
-            id=f"{cfg_dict.wandb.name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}"
+            id=f"{cfg_dict.wandb.name}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         )
         callbacks.append(LearningRateMonitor("step", True))
 
@@ -222,7 +222,7 @@ def train(cfg_dict: DictConfig):
             model_state_dict_ = encoder_.state_dict()
                      
             encoder_.load_state_dict(model_state_dict_, strict=False)
-            
+            encoder_.eval()
         elif 'state_dict' in ckpt_weights:
 
             print('Loading state_dict')
@@ -249,7 +249,7 @@ def train(cfg_dict: DictConfig):
 
             # Apply the state dict to encoder_ model
             encoder_.load_state_dict(model_state_, strict=False)
-
+            encoder_.eval()
             # Now for encoder (not encoder_)
             encoder_Weights = {k[8:]: v for k, v in ckpt_weights.items() if k.startswith('encoder.')}
             model_state = encoder.state_dict()
