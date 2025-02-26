@@ -13,6 +13,7 @@ from lightning.pytorch.utilities import rank_zero_only
 from tabulate import tabulate
 from torch import Tensor, nn, optim
 import torchvision
+import copy
 from ..dataset.data_module import get_data_shim
 from ..dataset.types import BatchedExample
 from ..evaluation.metrics import compute_lpips, compute_psnr, compute_ssim
@@ -165,21 +166,6 @@ class ModelWrapper(LightningModule):
         b, _, _, h, w = batch["target"]["image"].shape
 
 
-        # from torchvision.utils import save_image
-
-        # c0  = batch["context"]['image'][0,0,:,:,:]
-        # c1  = batch["context"]['image'][0,1,:,:,:]
-
-        # save_image(c0,'/data2/badrinath/NoPoSplat/c0.png')
-        # save_image(c1,'/data2/badrinath/NoPoSplat/c1.png')
-
-        # image0 = batch["target"]['image'][0,0,:,:,:]
-        # image1 = batch["target"]['image'][0,1,:,:,:]
-        # image2 = batch["target"]['image'][0,2,:,:,:]
-
-        # save_image(image0,'/data2/badrinath/NoPoSplat/t0.png')
-        # save_image(image1,'/data2/badrinath/NoPoSplat/t1.png')
-        # save_image(image2,'/data2/badrinath/NoPoSplat/t2.png')
 
 
         # Run the model.
@@ -192,13 +178,7 @@ class ModelWrapper(LightningModule):
 
 
 
-        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
-        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
-        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.opacities = gaussians.opacities * gauss_mask
-
-        
+       
         with torch.no_grad():
             gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
 
@@ -215,12 +195,6 @@ class ModelWrapper(LightningModule):
                     original= True
                 )
 
-
-        torchvision.utils.save_image(output_.color[0] , f"orig.png")
-        # row_start1, row_end1, col_start1, col_end1 , row_start2, row_end2, col_start2, col_end2 = batch["context"]["patch"]
-        
-
-        
   
 
         output = self.decoder.forward(
@@ -235,11 +209,6 @@ class ModelWrapper(LightningModule):
             which_img=(True, True),
             original= False
         )
-
-        torchvision.utils.save_image(output.color[0] , f"new.png")
-
-
-
 
         target_gt = batch["target"]["image"]
 
@@ -257,40 +226,107 @@ class ModelWrapper(LightningModule):
             self.log(f"loss/{loss_fn.name}", loss)
             total_loss = total_loss + loss
 
-
-        # Loss for Masked regions
-        # diag_indices = torch.arange(3)
-        # diagonal_entries = output.original_gaussians.covariances[:, :, diag_indices, diag_indices]
-        # rep = batch['context']['rep'].view( output.original_gaussians.covariances.shape[0],-1)
-        # mask_false = ~rep
-        # l1 =  (diagonal_entries[mask_false]**2).mean()
-   
-        # total_loss = total_loss + l1
-
-
-        # l2 =( output.original_gaussians.opacities[mask_false]**2).mean()
-        # total_loss = total_loss + l2
-        # # print(f"Mask loss : {l1+l2}")
-        # self.log(f"loss/mask", l1+l2)
-
-
-
-
-        # Loss for Un Masked regions
-
-
-        rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
-        scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
-        self.log("loss/scale_loss", scale_loss)
-
-
-        rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
-        opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
-        self.log("loss/opacities_loss", opacities_loss)
-
+        stereo_depth_loss = 0
         
-        total_loss = total_loss +  scale_loss + opacities_loss 
+        if self.global_step >=2000:
 
+            """INCLUDE THE Stereo loss"""
+            print("Stereo " , self.global_step)
+
+            # Prepare camera poses for stereo views
+        
+            stereo_batch = copy.deepcopy(batch)
+            cam_for_stereo = stereo_batch['context']['extrinsics']
+            
+            
+            B, num_views = cam_for_stereo.shape[0], cam_for_stereo.shape[1]
+            
+            start_cam = cam_for_stereo[:, 0, :, :].clone()
+            
+            n_vals = torch.arange(1, num_views, device=cam_for_stereo.device).float().view(1, -1, 1)  # Shape: (1, N-1, 1)
+            # Define the perturbation range (e.g., ±10% of n_vals)
+            perturbation_range = 0.1 * n_vals  # 10% of each value
+
+            # Generate random noise within the range [-perturbation_range, +perturbation_range]
+            noise = (torch.rand_like(n_vals) * 2 - 1) * perturbation_range  # Uniform in [-range, +range]
+
+            # Apply stochasticity
+            n_vals = n_vals + noise  # Add stochastic variation within range
+            
+            
+            shifted_t = torch.cat([n_vals / 10, torch.zeros(1, num_views-1, 2, device=cam_for_stereo.device)], dim=-1)  # (1, N-1, 3)
+
+            
+
+            """ Translation ?  """
+
+            t_values = shifted_t.squeeze(0).squeeze(0)  
+            transformation_matrix = torch.eye(4, device= cam_for_stereo.device)
+            transformation_matrix[:3, 3] = t_values
+
+            result = torch.matmul(cam_for_stereo[:,1:], transformation_matrix) 
+            cam_for_stereo[:,1:,:,:] = result
+            # Ongoing NOPOSPLAT
+            output_stereo = self.decoder.forward(
+                gaussians,
+                cam_for_stereo,
+                stereo_batch["context"]["intrinsics"],
+                stereo_batch["context"]["near"],    
+                stereo_batch["context"]["far"],
+                (h, w),
+                depth_mode=self.train_cfg.depth_mode,
+                rep = representation_gaussians, 
+                which_img=(True, True),
+                original=False
+            )
+            
+            
+            # number of camera poses in stereo kept same as number of target views
+            
+            
+            depth_stereo =  vis_depth_map ( output_stereo.depth)
+            color_interpolate_final = output_stereo.color.detach()
+            
+            stereo_batch['context']['extrinsics'] = cam_for_stereo
+            stereo_batch['context']['image'][:,:,:,:,:] = 2*output_stereo.color[:,:,:,:,:] -1 
+            
+
+            # Original Noposplat
+
+            with torch.no_grad():
+                # stero_gaussians_original , stero_gaussian_mod_ = self.encoder_.backbone( stereo_batch['context'] , self.global_step)
+                dec1, dec2, shape1, shape2, view1, view2   = self.encoder_.backbone(stereo_batch['context'], return_views=True)
+                res1 = self.encoder_._downstream_head(1, [tok.float() for tok in dec1]   , shape1)
+                res2 = self.encoder_._downstream_head(2, [tok.float() for tok in dec2]  , shape2)
+                pts3d1 = res1['pts3d']
+                pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
+                pts3d2 = res2['pts3d']
+                pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
+
+
+                pts3d1 = res1['pts3d']
+                pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
+                pts3d2 = res2['pts3d']
+                pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
+                pts_all = torch.stack((pts3d1, pts3d2), dim=1)
+                pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
+
+                
+                depths = pts_all[..., -1].unsqueeze(-1)
+
+                
+
+
+
+            depth_difference =  vis_depth_map(depths.view(b,2,256,256)) -  depth_stereo
+
+
+            stereo_depth_loss =  ((depth_difference)**2).mean()
+            total_loss  += 0.001*stereo_depth_loss
+            
+
+
+        print(self.global_step , " TRAIN : LOSS " ,  stereo_depth_loss)
 
 
         # distillation
@@ -748,19 +784,6 @@ class ModelWrapper(LightningModule):
         ssim = compute_ssim(rgb_gt, rgb_pred).mean()
         self.log(f"val/ssim", ssim)
 
-
-
-        # Loss for Un Masked regions
-
-
-        rep = batch['context']['rep'].view(gaussian_mod.scales.shape[0], -1)
-        scale_loss = ((gaussian_mod_.scales[rep] - gaussian_mod.scales[rep]) ** 2).mean()
-        self.log("loss/scale_loss", scale_loss)
-
-
-        rep = batch['context']['rep'].view(gaussian_mod.opacities.shape[0], -1)
-        opacities_loss = ((gaussian_mod_.opacities[rep] - gaussian_mod.opacities[rep]) ** 2).mean()
-        self.log("loss/opacities_loss", opacities_loss)
 
         
 
