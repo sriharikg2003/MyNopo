@@ -56,6 +56,8 @@ def train(cfg_dict: DictConfig):
     )
     print(cyan(f"Saving outputs to {output_dir}."))
 
+    from datetime import datetime
+
     # Set up logging with wandb.
     callbacks = []
     if cfg_dict.wandb.mode != "disabled":
@@ -67,8 +69,11 @@ def train(cfg_dict: DictConfig):
             log_model=False,
             save_dir=output_dir,
             config=OmegaConf.to_container(cfg_dict),
+            id=f"{cfg_dict.wandb.name}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         )
         callbacks.append(LearningRateMonitor("step", True))
+
+
 
         # On rank != 0, wandb.run is None.
         if wandb.run is not None:
@@ -83,7 +88,7 @@ def train(cfg_dict: DictConfig):
             every_n_train_steps=cfg.checkpointing.every_n_train_steps,
             save_top_k=cfg.checkpointing.save_top_k,
             save_weights_only=cfg.checkpointing.save_weights_only,
-            monitor="info/global_step",
+            monitor="val/psnr",
             mode="max",
         )
     )
@@ -220,7 +225,7 @@ def train(cfg_dict: DictConfig):
             model_state_dict_ = encoder_.state_dict()
                      
             encoder_.load_state_dict(model_state_dict_, strict=False)
-            
+            encoder_.eval()
         elif 'state_dict' in ckpt_weights:
 
             print('Loading state_dict')
@@ -247,7 +252,7 @@ def train(cfg_dict: DictConfig):
 
             # Apply the state dict to encoder_ model
             encoder_.load_state_dict(model_state_, strict=False)
-
+            encoder_.eval()
             # Now for encoder (not encoder_)
             encoder_Weights = {k[8:]: v for k, v in ckpt_weights.items() if k.startswith('encoder.')}
             model_state = encoder.state_dict()
