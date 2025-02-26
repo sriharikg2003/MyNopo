@@ -30,7 +30,7 @@ dataset:
       num_context_views: 3
 
 optimizer:
-  lr: 2e-4
+  lr: 5e-5
   warm_up_steps: 125
   backbone_lr_multiplier: 0.1
 

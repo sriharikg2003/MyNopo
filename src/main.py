@@ -55,6 +55,7 @@ def train(cfg_dict: DictConfig):
         hydra.core.hydra_config.HydraConfig.get()["runtime"]["output_dir"]
     )
     print(cyan(f"Saving outputs to {output_dir}."))
+    from datetime import datetime
 
     # Set up logging with wandb.
     callbacks = []
@@ -67,6 +68,7 @@ def train(cfg_dict: DictConfig):
             log_model=False,
             save_dir=output_dir,
             config=OmegaConf.to_container(cfg_dict),
+            id=f"{cfg_dict.wandb.name}-{datetime.now().strftime("%Y%m%d-%H%M%S")}"
         )
         callbacks.append(LearningRateMonitor("step", True))
 
@@ -83,7 +85,7 @@ def train(cfg_dict: DictConfig):
             every_n_train_steps=cfg.checkpointing.every_n_train_steps,
             save_top_k=cfg.checkpointing.save_top_k,
             save_weights_only=cfg.checkpointing.save_weights_only,
-            monitor="info/global_step",
+            monitor="val/psnr",
             mode="max",
         )
     )
