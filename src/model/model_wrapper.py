@@ -780,6 +780,7 @@ class ModelWrapper(LightningModule):
     @rank_zero_only
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         batch: BatchedExample = self.data_shim(batch)
+        print("VAL" , self.global_step)
         if self.global_rank == 0:
             print(
                 f"validation step {self.global_step}; "
