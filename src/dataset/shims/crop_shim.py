@@ -193,48 +193,17 @@ def get_wavelet_superpixel_representation_only_low_texture(images, wavelet='db1'
     batch_masks = []
     
     for b in range(img.shape[0]): 
-        original_img = img[b]
-
-        segments_slic = slic(original_img, n_segments=300, compactness=10, sigma=1, start_label=1)
-
-        sp_cord = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
-        sp_wave_values = {i: [] for i in range(segments_slic.min(), segments_slic.max() + 1)}
-
-        coeffs = pywt.wavedec2(original_img[:, :, 0], wavelet, level=level)
-        _, (cH, cV, cD) = coeffs 
-        wavelet_magnitude = np.abs(cH) + np.abs(cV) + np.abs(cD) 
-        resized_z =  cv2.resize(wavelet_magnitude, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
-
-        for i in range(segments_slic.shape[0]):
-            for j in range(segments_slic.shape[1]):
-                sp_cord[segments_slic[i, j]].append((i, j))
-                sp_wave_values[segments_slic[i, j]].append(abs(resized_z[i, j]))
-
-        
-        mean_wavelet_values = np.array([np.mean(sp_wave_values[k]) for k in sp_wave_values])
-        
-        
-        left = int(len(sp_cord.keys()) * percentage / 100)
-
-        indices = np.argsort(mean_wavelet_values)
-
-        selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
-        
-        representation_gaussians = []
-        for sp in selected_superpixels:
-            num_pixels = int(len(sp_cord[sp]) * 10 / 100)
-            representation_gaussians.extend(random.sample(sp_cord[sp], num_pixels))
-
-
+       
+        height, width = img.shape[1], img.shape[2]  
         mask = np.ones((img.shape[1], img.shape[2]), dtype=bool)
 
 
-        for sp in selected_superpixels:
-            for x, y in sp_cord[sp]:
-                mask[x, y] = False
+        total_pixels = height * width
+        num_prune = int((percentage / 100) * total_pixels)
 
-        for x, y in representation_gaussians:
-            mask[x, y] = True
+  
+        prune_indices = np.random.choice(total_pixels, num_prune, replace=False)
+        mask.flat[prune_indices] = False  # Set selected pixels to False
 
         batch_masks.append(torch.tensor(mask))  
 
