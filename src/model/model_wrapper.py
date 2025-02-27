@@ -177,7 +177,11 @@ class ModelWrapper(LightningModule):
         representation_gaussians = batch["context"]["rep"]
 
 
-
+        gauss_mask = representation_gaussians.view(b, -1) 
+        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1) 
+        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.opacities = gaussians.opacities * gauss_mask
        
         with torch.no_grad():
             gaussians_original , gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
@@ -195,7 +199,7 @@ class ModelWrapper(LightningModule):
                     original= True
                 )
 
-  
+
 
         output = self.decoder.forward(
             gaussians,
@@ -314,7 +318,6 @@ class ModelWrapper(LightningModule):
                 
                 depths = pts_all[..., -1].unsqueeze(-1)
 
-                
 
 
 
@@ -326,7 +329,7 @@ class ModelWrapper(LightningModule):
             
 
 
-        print(self.global_step , " TRAIN : LOSS " ,  stereo_depth_loss)
+        print(self.global_step , " TRAIN :  STERO LOSS " ,  stereo_depth_loss , total_loss)
 
 
         # distillation
@@ -718,10 +721,13 @@ class ModelWrapper(LightningModule):
 
         representation_gaussians = batch["context"]["rep"]
         gaussians_original, gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
-        gaussians.means = gaussians.means[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.covariances = gaussians.covariances[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.harmonics = gaussians.harmonics[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
-        gaussians.opacities = gaussians.opacities[ representation_gaussians.reshape(b,-1) ].unsqueeze(0)
+
+
+        gauss_mask = representation_gaussians.view(b, -1) 
+        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1) 
+        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        gaussians.opacities = gaussians.opacities * gauss_mask
 
 
         output_ = self.decoder.forward(

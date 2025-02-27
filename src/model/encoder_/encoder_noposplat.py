@@ -165,40 +165,7 @@ class EncoderNoPoSplat(Encoder_[EncoderNoPoSplatCfg]):
 
 
 
-        def select_superpixels(img, sp_cord, segments_slic, wavelet='haar', level=1, percentage=10):
-                # Ensure image is on CPU and convert to numpy
-            img = img.cpu().numpy()
-            
-            original_img = img
-
-            if isinstance(segments_slic, torch.Tensor):
-                segments_slic = segments_slic.cpu().numpy()
-            
-            sp_wave_values = {int(i): [] for i in sp_cord.keys()}
-            
-            coeffs = pywt.wavedec2(original_img[:,:,0], wavelet, level=level)
-            _, (x, y, z) = coeffs  # Extract detail coefficients
-            what = (x/(np.mean(x)))  +  y/(np.mean(y))  +  z / (np.mean(z)) 
-            resized_z = cv2.resize(what, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
-            
-            for i in range(segments_slic.shape[0]):
-                for j in range(segments_slic.shape[1]):
-                    key = int(segments_slic[i, j])  # Ensure integer key
-                    if key in sp_wave_values:
-                        sp_wave_values[key].append(abs(resized_z[i, j]))
-                    else:
-                        print(f"Warning: Key {key} not found in sp_wave_values")
-            mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
-
-            
-            
-            threshold = np.percentile(mean_wavelet_values, 40)
-
-            selected_superpixels = np.array(list(sp_cord.keys()))[mean_wavelet_values < threshold]
-
-            return selected_superpixels
-
-
+        
         with torch.cuda.amp.autocast(enabled=False):
            
             dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
