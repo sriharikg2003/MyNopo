@@ -33,6 +33,7 @@ class DatasetRE10kCfg(DatasetCfgCommon):
     augment: bool
     relative_pose: bool
     skip_bad_shape: bool
+    prune_percent : int
 
 
 
@@ -202,7 +203,7 @@ class DatasetRE10k(IterableDataset):
                 }
                 if self.stage == "train" and self.cfg.augment:
                     example = apply_augmentation_shim(example)
-                yield apply_crop_shim(example, tuple(self.cfg.input_image_shape))
+                yield apply_crop_shim(example, tuple(self.cfg.input_image_shape) , self.cfg.prune_percent)
 
     def convert_poses(
         self,

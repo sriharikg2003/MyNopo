@@ -62,6 +62,8 @@ test:
   save_video: false
   save_compare: false
   eval_time_skip_steps: 0
+  overlap_range : null
+  title : null
 seed: 111123
 
 trainer:
@@ -73,3 +75,4 @@ trainer:
 hydra:
   run:
     dir: outputs/exp_${wandb.name}/${now:%Y-%m-%d_%H-%M-%S}
+

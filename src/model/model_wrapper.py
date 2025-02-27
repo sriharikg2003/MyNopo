@@ -1,5 +1,4 @@
-overlap_range = "large"
-title = "mask_0_to_80"
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Protocol, runtime_checkable, Any
@@ -70,6 +69,8 @@ class TestCfg:
     save_video: bool
     save_compare: bool
     eval_time_skip_steps: int
+    overlap_range : str
+    title : str
 
 @dataclass
 class TrainCfg:
@@ -110,6 +111,7 @@ class ModelWrapper(LightningModule):
     test_cfg: TestCfg
     train_cfg: TrainCfg
     step_tracker: StepTracker | None
+    
 
     def __init__(
         self,
@@ -450,7 +452,13 @@ class ModelWrapper(LightningModule):
 
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
-        
+        if not self.test_cfg.overlap_range :
+            print("OVAERLAP NOT SPECIFIED")
+            exit()
+        if not self.test_cfg.title:
+            print("TITLE NOT SPECIFIED")
+            exit()
+
         b, v, _, h, w = batch["target"]["image"].shape
         
         assert b == 1
@@ -492,7 +500,7 @@ class ModelWrapper(LightningModule):
                 which_img=(True, True),
                 original= False
             )
-        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS/{name}/{overlap_range}/{title}"
+        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS/{name}/{self.test_cfg.overlap_range}/{self.test_cfg.title}"
 
         os.makedirs(OUTPUT_FOLDER_PATH, exist_ok=True)
         images_prob = output.color[0]
@@ -706,6 +714,10 @@ class ModelWrapper(LightningModule):
         # )
         # save_image(comparison, f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images/{scene}.png")
 
+
+
+
+
     def test_step_align(self, batch, gaussians):
         self.encoder.eval()
         # freeze all parameters
@@ -835,7 +847,7 @@ class ModelWrapper(LightningModule):
         name = get_cfg()["wandb"]["name"]
 
 
-        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS/{name}/{overlap_range}/{title}"
+        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS/{name}/{self.test_cfg.overlap_range }/{self.test_cfg.title }"
         os.makedirs(OUTPUT_FOLDER_PATH, exist_ok=True)
 
         saved_scores = {}

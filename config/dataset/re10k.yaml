@@ -13,3 +13,4 @@ cameras_are_circular: false
 baseline_min: 1e-3
 baseline_max: 1e10
 max_fov: 100.0
+prune_percent: null
