@@ -246,7 +246,7 @@ def train(cfg_dict: DictConfig):
                         model_state_[k].copy_(v)  # Directly copy weights if shape matches
                     else:
                         print(f"Initializing {k} due to shape mismatch: {v.shape} vs {model_state_[k].shape}")
-                        exit()
+                        
                 else:
                     print(f"Skipping {k} because it is not found in encoder_ model state")
 
