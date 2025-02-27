@@ -61,7 +61,7 @@ test:
   save_image: true
   save_video: false
   save_compare: false
-
+  eval_time_skip_steps: 0
 seed: 111123
 
 trainer:

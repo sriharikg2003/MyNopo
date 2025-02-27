@@ -171,6 +171,7 @@ def train(cfg_dict: DictConfig):
         weight_path = cfg.model.encoder.pretrained_weights
         ckpt_weights = torch.load(weight_path, map_location='cpu')
 
+       
 
         excluded_keys = [
             "downstream_head1.dpt.head.0.weight",
@@ -319,4 +320,3 @@ if __name__ == "__main__":
 
 
     train()
-
