@@ -16,7 +16,7 @@ model:
     pose_free: true
     intrinsics_embed_loc: encoder
     intrinsics_embed_type: token
-    pretrained_weights: '/workspace/raid/cdsbad/splat3r_try/NoPoSplat/pretrained_weights/acid.ckpt'
+    pretrained_weights: '/workspace/raid/cdsbad/splat3r_try/NoPoSplat/outputs/exp_acid/2025-02-27_05-21-19/checkpoints/epoch_0-step_3730.ckpt'
   encoder_:
     gs_params_head_type: dpt_gs
     pose_free: true
