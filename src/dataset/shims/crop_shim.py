@@ -286,7 +286,6 @@ def apply_crop_shim(example: AnyExample, shape: tuple[int, int], prune_percent :
     """Crop images in the example."""
     if not prune_percent:
         print("Prune percentage missing")
-        exit()
     return {
         **example,
         "context": apply_crop_shim_to_views(example["context"], shape , is_context=True , prune_percent = prune_percent),
