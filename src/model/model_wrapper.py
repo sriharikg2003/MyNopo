@@ -232,7 +232,7 @@ class ModelWrapper(LightningModule):
 
         stereo_depth_loss = 0
         
-        if self.global_step >=2000:
+        if self.global_step >=0:
 
             """INCLUDE THE Stereo loss"""
             print("Stereo " , self.global_step)
