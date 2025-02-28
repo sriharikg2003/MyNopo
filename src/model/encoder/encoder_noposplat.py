@@ -1,7 +1,10 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, Optional
-
+def inverse_normalize_image(tensor, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)):
+    mean = torch.as_tensor(mean, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+    std = torch.as_tensor(std, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+    return tensor * std + mean
 import torch
 import torch.nn.functional as F
 from einops import rearrange
@@ -101,6 +104,26 @@ def export_ply(
     elements[:] = list(map(tuple, attributes))
     path.parent.mkdir(exist_ok=True, parents=True)
     PlyData([PlyElement.describe(elements, "vertex")]).write(path)
+
+
+
+def save_colored_pointcloud(x, y, z, r, g, b, path):
+    """
+    Save a point cloud to a PLY file.
+    
+    Args:
+        x, y, z: 1D numpy arrays of shape (N,) representing point coordinates.
+        r, g, b: 1D numpy arrays of shape (N,) representing color values (0-255).
+        path: Output file path (string or Path object).
+    """
+    assert len(x) == len(y) == len(z) == len(r) == len(g) == len(b), "Input arrays must have the same length"
+    
+    points = np.array(list(zip(x, y, z, r, g, b)), dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+    
+    el = PlyElement.describe(points, 'vertex')
+    PlyData([el]).write(path)
+    print(f"PLY file saved to {path}")
+
 
 
 @dataclass
@@ -273,8 +296,38 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         
         depths = pts_all[..., -1].unsqueeze(-1)
 
+        breakpoint()
+                # Extract xyz coordinates
+        pts_all = pts_all.squeeze(-2)  # Shape: [1, 2, 65536, 3]
+        pts_all = pts_all.reshape(-1, 3)  # Shape: [N, 3]
+        # Extract RGB colors
+        image = context["image"].squeeze(0)  # Remove batch dim, shape: [2, 3, 256, 256]
 
-        
+        # Apply inverse normalization and scale to 0-255
+        image = inverse_normalize_image(image) * 255
+
+        # Permute before converting to NumPy (move channels to last dim)
+        image = image.permute(0, 2, 3, 1)  # Shape: [2, 256, 256, 3]
+
+        # Convert to NumPy (ensure it's uint8)
+        image = image.detach().cpu().numpy().astype(np.uint8)
+
+        # Flatten to match point cloud structure
+        image = image.reshape(-1, 3)  # Shape: [N, 3]
+
+
+
+        # Separate channels
+        x, y, z = pts_all[:, 0], pts_all[:, 1], pts_all[:, 2]
+        r, g, b = image[:, 0], image[:, 1], image[:, 2]
+
+        save_colored_pointcloud(x, y, z, r, g, b, "output.ply")
+
+
+
+
+
+
         gaussians = torch.stack([GS_res1, GS_res2], dim=1)
         gaussians = rearrange(gaussians, "... (srf c) -> ... srf c", srf=self.cfg.num_surfaces)
         densities = gaussians[..., 0].sigmoid().unsqueeze(-1)

@@ -88,7 +88,6 @@ def train(cfg_dict: DictConfig):
             save_weights_only=cfg.checkpointing.save_weights_only,
             monitor="val/psnr",
             mode="max",
-            filename="epoch={epoch}-step={step}-val_psnr={val/psnr:.4f}"
         )
     )
     callbacks[-1].CHECKPOINT_EQUALS_CHAR = '_'

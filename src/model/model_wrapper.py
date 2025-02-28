@@ -1059,7 +1059,7 @@ class ModelWrapper(LightningModule):
         except Exception as e:  # Catch specific error details
 
             print("ERROR CAUGHT VALIDATION:", str(e))  # Print the actual error message
-            return None
+            exit()
 
 
     @rank_zero_only

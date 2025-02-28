@@ -44,7 +44,7 @@ data_loader:
 
 trainer:
   max_steps: 900_001
-  val_check_interval: 10
+  val_check_interval: 50
 
 checkpointing:
-  every_n_train_steps: 10
+  every_n_train_steps: 50
