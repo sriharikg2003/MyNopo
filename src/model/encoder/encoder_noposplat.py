@@ -296,7 +296,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         
         depths = pts_all[..., -1].unsqueeze(-1)
 
-        breakpoint()
+ 
                 # Extract xyz coordinates
         pts_all = pts_all.squeeze(-2)  # Shape: [1, 2, 65536, 3]
         pts_all = pts_all.reshape(-1, 3)  # Shape: [N, 3]
@@ -324,8 +324,24 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         save_colored_pointcloud(x, y, z, r, g, b, "output.ply")
 
 
+        rep = context["rep"].squeeze(0).reshape(-1).cpu().numpy()  # Shape: [N]
+
+        # Create a mask where `rep` is False
+        false_mask = rep == False  # Logical mask
+
+        # Assign Red color (255, 0, 0) only for False points
+        r[false_mask] = 255
+        g[false_mask] = 0
+        b[false_mask] = 0
+
+        # Convert all tensors to CPU and NumPy
+        x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
 
 
+        # Save the final point cloud
+        save_colored_pointcloud(x, y, z, r, g, b, "output_with_false_red.ply")
+
+        exit()
 
 
         gaussians = torch.stack([GS_res1, GS_res2], dim=1)

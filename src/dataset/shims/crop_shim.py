@@ -191,6 +191,7 @@ def get_wavelet_superpixel_representation_mix_texture(images, wavelet='db1', lev
 def get_wavelet_superpixel_representation_only_low_texture(images, wavelet='db1', level=1, percentage=None):
 
     # percentage = random.choice([percentage , 0])
+    percentage = 40
     img = images.permute(0, 2, 3, 1).cpu().numpy()
     batch_masks = []
     
