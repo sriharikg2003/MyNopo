@@ -9,6 +9,7 @@ from jaxtyping import Float
 import time
 from torch import Tensor, nn
 from typing import Tuple
+import torchvision
 from .backbone.croco.misc import transpose_to_landscape
 from .heads import head_factory
 from ...dataset.shims.bounds_shim import apply_bounds_shim
@@ -460,7 +461,6 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             # import torchvision
 
 
-            # HIgh texture
             representation_gaussians_2 = []
             for sp in selected_superpixels_high:
                 num_pixels = int(len(super_pixel_coordinates_2[sp]) * 90 / 100)
@@ -493,9 +493,14 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
             breakpoint()
-            data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep']}
-
-            torch.save(data, "data.pt")
+            data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep'] ,  "pts1_cluster_label" :  pts1_cluster_label , "pts2_cluster_label" :  pts2_cluster_label}
+            timestamp = time.strftime("%Y%m%d_%H%M%S")  # Format: YYYYMMDD_HHMMSS
+            filename = f"{timestamp}"
+            folder_name = "3D_aware_output/"+filename
+            os.makedirs(folder_name , exist_ok=True)
+            torchvision.utils.save_image(inverse_normalize_image(context['image'][0][1]) , f"{folder_name}/c1.png")
+            torchvision.utils.save_image(inverse_normalize_image(context['image'][0][1]) , f"{folder_name}/c2.png")
+            torch.save(data, filename)
 
         # with torch.cuda.amp.autocast(enabled=False):
 
