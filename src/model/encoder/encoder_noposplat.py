@@ -21,6 +21,31 @@ from .backbone import Backbone, BackboneCfg, get_backbone
 from .common.gaussian_adapter import GaussianAdapter, GaussianAdapterCfg, UnifiedGaussianAdapter
 from .encoder import Encoder
 from .visualization.encoder_visualizer_epipolar_cfg import EncoderVisualizerEpipolarCfg
+def inverse_normalize_image(tensor, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)):
+    mean = torch.as_tensor(mean, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+    std = torch.as_tensor(std, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+    return tensor * std + mean
+
+
+
+def save_colored_pointcloud(x, y, z, r, g, b, path):
+    """
+    Save a point cloud to a PLY file.
+    
+    Args:
+        x, y, z: 1D numpy arrays of shape (N,) representing point coordinates.
+        r, g, b: 1D numpy arrays of shape (N,) representing color values (0-255).
+        path: Output file path (string or Path object).
+    """
+    assert len(x) == len(y) == len(z) == len(r) == len(g) == len(b), "Input arrays must have the same length"
+    
+    points = np.array(list(zip(x, y, z, r, g, b)), dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+    
+    el = PlyElement.describe(points, 'vertex')
+    PlyData([el]).write(path)
+    print(f"PLY file saved to {path}")
+
+
 
 import torch
 import numpy as np
@@ -317,7 +342,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
         for b in range(context['image'].size(0)):  # Iterate over batch
-            fraction = np.random.uniform(0,80)
+            fraction = 40
             pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
             pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
 
@@ -465,6 +490,12 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
             # Assign to context['rep'][0][1]
             context['rep'][b][1] = mask_tensor
+
+
+            breakpoint()
+            data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep']}
+
+            torch.save(data, "data.pt")
 
         # with torch.cuda.amp.autocast(enabled=False):
 
