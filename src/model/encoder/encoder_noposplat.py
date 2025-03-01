@@ -155,6 +155,7 @@ class EncoderNoPoSplatCfg:
     input_std: tuple[float, float, float] = (0.5, 0.5, 0.5)
     pretrained_weights: str = ""
     pose_free: bool = True
+    prune_percent : int
 
 from pathlib import Path
 
@@ -191,7 +192,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         self.patch_size = self.backbone.patch_embed.patch_size[0]
         self.raw_gs_dim = 1 + self.gaussian_adapter.d_in  # 1 for opacity
-
+        self.prune_percent = cfg.prune_percent
         self.gs_params_head_type = cfg.gs_params_head_type
 
         self.set_center_head(output_mode='pts3d', head_type='dpt', landscape_only=True,
@@ -344,7 +345,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 # 300 clusters masking
 
         for b in range(context['image'].size(0)):  # Iterate over batch
-            fraction = 
+
             pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
             pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
 
