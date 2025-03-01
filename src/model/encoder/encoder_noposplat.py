@@ -1,12 +1,14 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, Optional
-from torch_kmeans import KMeans
+def inverse_normalize_image(tensor, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)):
+    mean = torch.as_tensor(mean, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+    std = torch.as_tensor(std, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
+    return tensor * std + mean
 import torch
 import torch.nn.functional as F
 from einops import rearrange
 from jaxtyping import Float
-import time
 from torch import Tensor, nn
 from typing import Tuple
 from .backbone.croco.misc import transpose_to_landscape
@@ -21,31 +23,6 @@ from .backbone import Backbone, BackboneCfg, get_backbone
 from .common.gaussian_adapter import GaussianAdapter, GaussianAdapterCfg, UnifiedGaussianAdapter
 from .encoder import Encoder
 from .visualization.encoder_visualizer_epipolar_cfg import EncoderVisualizerEpipolarCfg
-def inverse_normalize_image(tensor, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)):
-    mean = torch.as_tensor(mean, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
-    std = torch.as_tensor(std, dtype=tensor.dtype, device=tensor.device).view(-1, 1, 1)
-    return tensor * std + mean
-
-
-
-def save_colored_pointcloud(x, y, z, r, g, b, path):
-    """
-    Save a point cloud to a PLY file.
-    
-    Args:
-        x, y, z: 1D numpy arrays of shape (N,) representing point coordinates.
-        r, g, b: 1D numpy arrays of shape (N,) representing color values (0-255).
-        path: Output file path (string or Path object).
-    """
-    assert len(x) == len(y) == len(z) == len(r) == len(g) == len(b), "Input arrays must have the same length"
-    
-    points = np.array(list(zip(x, y, z, r, g, b)), dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
-    
-    el = PlyElement.describe(points, 'vertex')
-    PlyData([el]).write(path)
-    print(f"PLY file saved to {path}")
-
-
 
 import torch
 import numpy as np
@@ -127,6 +104,26 @@ def export_ply(
     elements[:] = list(map(tuple, attributes))
     path.parent.mkdir(exist_ok=True, parents=True)
     PlyData([PlyElement.describe(elements, "vertex")]).write(path)
+
+
+
+def save_colored_pointcloud(x, y, z, r, g, b, path):
+    """
+    Save a point cloud to a PLY file.
+    
+    Args:
+        x, y, z: 1D numpy arrays of shape (N,) representing point coordinates.
+        r, g, b: 1D numpy arrays of shape (N,) representing color values (0-255).
+        path: Output file path (string or Path object).
+    """
+    assert len(x) == len(y) == len(z) == len(r) == len(g) == len(b), "Input arrays must have the same length"
+    
+    points = np.array(list(zip(x, y, z, r, g, b)), dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4'), ('red', 'u1'), ('green', 'u1'), ('blue', 'u1')])
+    
+    el = PlyElement.describe(points, 'vertex')
+    PlyData([el]).write(path)
+    print(f"PLY file saved to {path}")
+
 
 
 @dataclass
@@ -270,48 +267,6 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         dec2_mask = context_rep_resized[:, 1:]
 
 
-
-
-        def select_superpixels(img, sp_cord, segments_slic, wavelet='db1', level=1, percentage=10):
-                # Ensure image is on CPU and convert to numpy
-            img = img.cpu().numpy()
-            
-            original_img = img
-
-            if isinstance(segments_slic, torch.Tensor):
-                segments_slic = segments_slic.cpu().numpy()
-            
-            sp_wave_values = {int(i): [] for i in sp_cord.keys()}
-            
-            coeffs = pywt.wavedec2(original_img[:,:,0], wavelet, level=level)
-            _, (cH, cV, cD) = coeffs 
-            wavelet_magnitude = np.abs(cH) + np.abs(cV) + np.abs(cD) 
-
-            resized_z = cv2.resize(wavelet_magnitude, (original_img.shape[1], original_img.shape[0]), interpolation=cv2.INTER_LINEAR)
-            
-            for i in range(segments_slic.shape[0]):
-                for j in range(segments_slic.shape[1]):
-                    key = int(segments_slic[i, j])  # Ensure integer key
-                    if key in sp_wave_values:
-                        sp_wave_values[key].append(abs(resized_z[i, j]))
-                    else:
-                        print(f"Warning: Key {key} not found in sp_wave_values")
-            mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
-
-
-            left = int(len(sp_cord.keys()) * percentage / 100)
-            right = len(sp_cord.keys()) - left 
-            indices = np.argsort(mean_wavelet_values)
-
-            selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
-            selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
-
-
-            return selected_superpixels , selected_superpixels_high
-
-
-
-
         with torch.cuda.amp.autocast(enabled=False):
 
             dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
@@ -337,199 +292,58 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
         pts_all = torch.stack((pts3d1, pts3d2), dim=1)
         pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
-#####
 
-
-
-        for b in range(context['image'].size(0)):  # Iterate over batch
-            fraction = 40
-            pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
-            pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
-
-            # Flatten into a (N, 6) tensor
-            tensor_data = torch.cat((pts1_append, pts2_append), dim=0).reshape(-1, 6)
-
-            # Ensure no gradients are tracked
-            tensor_data = tensor_data.detach()
-
-            # Use GPU if available
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            tensor_data = tensor_data.to(device)
-
-            # Reshape to match KMeans expected input shape (BS, N, D)
-            tensor_data = tensor_data.unsqueeze(0)  # Adds batch dimension (1, N, D)
-
-            kmeans = KMeans(n_clusters=300, mode='euclidean', verbose=0)
-    
-            # Perform clustering
-            start  = time.time()
-            cluster_result = kmeans.fit_predict(tensor_data)  # Returns a ClusterResult object
-
-            print(f"##CLUSTER {time.time()-start}")
-            cluster_labels = cluster_result   
-
-            # Reshape cluster labels back to original dimensions
-            num_pts1 = pts1_append.shape[0] * pts1_append.shape[1]  # Total points in first image
-            pts1_cluster_label = cluster_labels[0][:num_pts1].reshape(pts1_append.shape[0], pts1_append.shape[1])
-            pts2_cluster_label = cluster_labels[0][num_pts1:].reshape(pts2_append.shape[0], pts2_append.shape[1])
-
-            # Ensure labels are on the correct device
-            pts1_cluster_label = pts1_cluster_label.to(device)
-            pts2_cluster_label = pts2_cluster_label.to(device)
-
-
-            super_pixel_coordinates_1 = {i: [] for i in range(pts1_cluster_label.min(), pts1_cluster_label.max() + 1)}
-            
-            for i in range(pts1_cluster_label.shape[0]):
-                for j in range(pts1_cluster_label.shape[1]):
-                    super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
-            
-            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=fraction)
-            #breakpoint()
-            
-            representation_gaussians_1 = []
-            for sp in selected_superpixels:
-                num_pixels = int(len(super_pixel_coordinates_1[sp]) * 10 / 100)
-                representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
-            #breakpoint()
-            mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
-            for sp in selected_superpixels:
-                for x, y in super_pixel_coordinates_1[sp]:
-                    mask[x, y] = False
-                    
-            #breakpoint()
-            for x, y in representation_gaussians_1:
-                mask[x, y] = True
-
-
-            # HIgh texture
-            representation_gaussians_1 = []
-            for sp in selected_superpixels_high:
-                num_pixels = int(len(super_pixel_coordinates_1[sp]) * 90 / 100)
-                representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
-            #breakpoint()
-            for sp in selected_superpixels_high:
-                for x, y in super_pixel_coordinates_1[sp]:
-                    mask[x, y] = False
-                    
-            #breakpoint()
-            for x, y in representation_gaussians_1:
-                mask[x, y] = True
-
-
-
-            #breakpoint()
-            
-            # torchvision.utils.save_image(context['image'][b, 0] , "del.png")
-            plt.imshow(mask, cmap="gray")
-
-
-            plt.savefig(f"mask_3d_{1}.png", bbox_inches='tight')
-            plt.close()
-            #breakpoint()
-            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][0].device)
-
-
-            context['rep'][b][0] = mask_tensor
-
-            #breakpoint()
-            super_pixel_coordinates_2 = {i: [] for i in range(pts2_cluster_label.min(), pts2_cluster_label.max() + 1)}
-            for i in range(pts2_cluster_label.shape[0]):
-                for j in range(pts2_cluster_label.shape[1]):
-                    super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
-            representation_gaussians_2 = []
-            mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool) 
-            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label , percentage=fraction) 
-            for sp in selected_superpixels:
-                if sp in super_pixel_coordinates_2:
-                    num_pixels = int(len(super_pixel_coordinates_2[sp]) * 10 / 100)
-                    representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
-                
-                else:
-                    print(sp , "******")
-            #breakpoint()
-            for sp in selected_superpixels:
-                if sp in super_pixel_coordinates_2:
-                    for x, y in super_pixel_coordinates_2[sp]:
-                        mask[x, y] = False
-                        
-            #breakpoint()
-            for x, y in representation_gaussians_2:
-                mask[x, y] = True
-            #breakpoint()
-            # import torchvision
-
-
-            # HIgh texture
-            representation_gaussians_2 = []
-            for sp in selected_superpixels_high:
-                num_pixels = int(len(super_pixel_coordinates_2[sp]) * 90 / 100)
-                representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
-            #breakpoint()
-            for sp in selected_superpixels_high:
-                for x, y in super_pixel_coordinates_2[sp]:
-                    mask[x, y] = False
-                    
-            #breakpoint()
-            for x, y in representation_gaussians_2:
-                mask[x, y] = True
-
-
-
-
-            # torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
-            plt.imshow(mask, cmap="gray")
-
-
-            plt.savefig(f"mask_3d_{2}.png", bbox_inches='tight')
-            plt.close()
-            
-
-
-            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][1].device)
-
-            # Assign to context['rep'][0][1]
-            context['rep'][b][1] = mask_tensor
-
-
-            breakpoint()
-            data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep']}
-
-            torch.save(data, "data.pt")
-
-        # with torch.cuda.amp.autocast(enabled=False):
-
-        #     dec1, dec2, shape1, shape2, view1, view2   = self.backbone(context, return_views=True)
-        #     res1 = self._downstream_head(1, [tok.float() for tok in dec1]  +  [tok.float() for tok in dec1_mask]  , shape1)
-        #     res2 = self._downstream_head(2, [tok.float() for tok in dec2] +  [tok.float() for tok in dec2_mask]  , shape2)
-        #     if self.gs_params_head_type == 'linear':
-        #         GS_res1 = rearrange_head(self.gaussian_param_head(dec1[-1]), self.patch_size, h, w)
-        #         GS_res2 = rearrange_head(self.gaussian_param_head2(dec2[-1]), self.patch_size, h, w)
-        #     elif self.gs_params_head_type == 'dpt':
-        #         GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1]  +  [tok.float() for tok in dec1_mask]   , shape1[0].cpu().tolist())
-        #         GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
-        #         GS_res2 = self.gaussian_param_head2([tok.float() for tok in dec2] +   [tok.float() for tok in dec2_mask], shape2[0].cpu().tolist())
-        #         GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
-        #     elif self.gs_params_head_type == 'dpt_gs':
-        #         GS_res1 = self.gaussian_param_head(  [tok.float() for tok in dec1] +  [tok.float() for tok in dec1_mask]   , res1['pts3d'].permute(0, 3, 1, 2), view1['img'][:, :3] , shape1[0].cpu().tolist())
-        #         GS_res1 = rearrange(GS_res1, "b d h w -> b (h w) d")
-        #         GS_res2 = self.gaussian_param_head2(  [tok.float() for tok in dec2]   + [tok.float() for tok in dec2_mask]   , res2['pts3d'].permute(0, 3, 1, 2), view2['img'][:, :3], shape2[0].cpu().tolist())
-        #         GS_res2 = rearrange(GS_res2, "b d h w -> b (h w) d")
         
-        pts3d1 = res1['pts3d']
-        pts3d1 = rearrange(pts3d1, "b h w d -> b (h w) d")
-        pts3d2 = res2['pts3d']
-        pts3d2 = rearrange(pts3d2, "b h w d -> b (h w) d")
-        pts_all = torch.stack((pts3d1, pts3d2), dim=1)
-        pts_all = pts_all.unsqueeze(-2)  # for cfg.num_surfaces
-
-
-#####
-
         depths = pts_all[..., -1].unsqueeze(-1)
 
+ 
+                # Extract xyz coordinates
+        pts_all = pts_all.squeeze(-2)  # Shape: [1, 2, 65536, 3]
+        pts_all = pts_all.reshape(-1, 3)  # Shape: [N, 3]
+        # Extract RGB colors
+        image = context["image"].squeeze(0)  # Remove batch dim, shape: [2, 3, 256, 256]
 
-        
+        # Apply inverse normalization and scale to 0-255
+        image = inverse_normalize_image(image) * 255
+
+        # Permute before converting to NumPy (move channels to last dim)
+        image = image.permute(0, 2, 3, 1)  # Shape: [2, 256, 256, 3]
+
+        # Convert to NumPy (ensure it's uint8)
+        image = image.detach().cpu().numpy().astype(np.uint8)
+
+        # Flatten to match point cloud structure
+        image = image.reshape(-1, 3)  # Shape: [N, 3]
+
+
+
+        # Separate channels
+        x, y, z = pts_all[:, 0], pts_all[:, 1], pts_all[:, 2]
+        r, g, b = image[:, 0], image[:, 1], image[:, 2]
+
+        save_colored_pointcloud(x, y, z, r, g, b, "output.ply")
+
+
+        rep = context["rep"].squeeze(0).reshape(-1).cpu().numpy()  # Shape: [N]
+
+        # Create a mask where `rep` is False
+        false_mask = rep == False  # Logical mask
+
+        # Assign Red color (255, 0, 0) only for False points
+        r[false_mask] = 255
+        g[false_mask] = 0
+        b[false_mask] = 0
+
+        # Convert all tensors to CPU and NumPy
+        x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
+
+
+        # Save the final point cloud
+        save_colored_pointcloud(x, y, z, r, g, b, "output_with_false_red.ply")
+
+        exit()
+
+
         gaussians = torch.stack([GS_res1, GS_res2], dim=1)
         gaussians = rearrange(gaussians, "... (srf c) -> ... srf c", srf=self.cfg.num_surfaces)
         densities = gaussians[..., 0].sigmoid().unsqueeze(-1)
