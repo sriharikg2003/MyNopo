@@ -35,3 +35,6 @@ class Benchmarker:
     def summarize(self) -> None:
         for tag, times in self.execution_times.items():
             print(f"{tag}: {len(times)} calls, avg. {np.mean(times)} seconds per call")
+
+    def clear_history(self) -> None:
+        self.execution_times = defaultdict(list)

@@ -5,6 +5,9 @@ import time
 import moviepy.editor as mpy
 import torch
 import wandb
+import os
+import numpy as np
+import json
 from einops import pack, rearrange, repeat
 from jaxtyping import Float
 from lightning.pytorch import LightningModule
@@ -64,7 +67,9 @@ class TestCfg:
     save_image: bool
     save_video: bool
     save_compare: bool
-
+    eval_time_skip_steps: int
+    overlap_range : str
+    title : str
 
 @dataclass
 class TrainCfg:
@@ -142,6 +147,11 @@ class ModelWrapper(LightningModule):
 
         # This is used for testing.
         self.benchmarker = Benchmarker()
+        self.eval_cnt = 0
+
+        if self.test_cfg.compute_scores:
+            self.test_step_outputs = {}
+            self.time_skip_steps_dict = {"encoder": 0, "decoder": 0}
 
     def training_step(self, batch, batch_idx):
         # combine batch from different dataloaders
@@ -365,17 +375,24 @@ class ModelWrapper(LightningModule):
 
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
-        
-        b, v, _, h, w = batch["target"]["image"].shape
+        if not self.test_cfg.overlap_range :
+            print("OVAERLAP NOT SPECIFIED")
+            exit()
+        if not self.test_cfg.title:
+            print("TITLE NOT SPECIFIED")
+            exit()
 
+        b, v, _, h, w = batch["target"]["image"].shape
+        
         assert b == 1
         if batch_idx % 100 == 0:
             print(f"Test step {batch_idx:0>6}.")
 
         
-
+        (scene,) = batch["scene"]
+        name = get_cfg()["wandb"]["name"]
         
-        # Render Gaussians.
+        # Render Gaussians Our model
         with self.benchmarker.time("encoder"):
             gaussians , gaussian_mod  = self.encoder(
                 batch["context"],
@@ -383,187 +400,79 @@ class ModelWrapper(LightningModule):
             )
 
 
-
-
         total_views = batch["context"]["far"].shape[1]
-        # print(batch["target"]["extrinsics"].shape)
-        # exit()
 
 
 
         context_img = batch["context"]["image"][0]
         mask = batch["context"]["rep"][0].unsqueeze(1)
-        masked_img = context_img * mask
-        batch["context"]["image"][0] = masked_img
+        masked_img = inverse_normalize(context_img) * mask
+        # batch["context"]["image"][0] = masked_img
         representation_gaussians = batch["context"]["rep"]
 
-
-        # gaussians.means[ ~representation_gaussians.reshape(b,-1) ] = 0
-        # gaussians.covariances[ ~representation_gaussians.reshape(b,-1) ] = 0
-        # gaussians.opacities[ ~representation_gaussians.reshape(b,-1) ] = 0
-        # gaussians.harmonics[ ~representation_gaussians.reshape(b,-1) ] = 0
-        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
-        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
-        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.opacities = gaussians.opacities * gauss_mask
-
-
-        num_interpolated_views = 60
-        color_interpolate_final_list = []
-        for cam in range(total_views-1):
-            cameras_picked = (cam,cam + 1)
-
-            # batch_size = batch[]
-            
-            device = batch['context']['extrinsics'][:,cameras_picked[0],:,:].device
-            
-
-
-
-            # print(batch["target"]["near"][:,0].unsqueeze(1).shape, batch["target"]["near"][:,0].shape)
-            # exit()
-            interpolate_z_near = batch["context"]["near"][:,0].unsqueeze(1).expand(batch["context"]["near"].shape[0], num_interpolated_views)
-            interpolate_z_far = batch["context"]["far"][:,0].unsqueeze(1).expand(batch["context"]["far"].shape[0], num_interpolated_views)
-
-            t = torch.linspace(0, 1, num_interpolated_views, dtype=torch.float32, device=self.device)
-            
-            t = (torch.cos(torch.pi * (t + 1)) + 1) / 2
-            interpolate_extrinsics_cam = interpolate_extrinsics(batch['context']['extrinsics'][:,cameras_picked[0],:,:], batch['context']['extrinsics'][:,cameras_picked[1],:,:], t )
-            
-            # This should be same if context views intrinsics are same.
-            interpolate_intrinsics_cam = interpolate_intrinsics(batch['context']['intrinsics'][:,cameras_picked[0],:,:], batch['context']['intrinsics'][:,cameras_picked[1],:,:],  t)
-
-            
-
-
-
-
-     
-            output_interpolate = self.decoder.forward(
+        with self.benchmarker.time("decoder", num_calls=v):
+            output = self.decoder.forward(
                 gaussians,
-                interpolate_extrinsics_cam,
-                interpolate_intrinsics_cam,
-                interpolate_z_near,
-                interpolate_z_far,
+                batch["target"]["extrinsics"],
+                batch["target"]["intrinsics"],
+                batch["target"]["near"],
+                batch["target"]["far"],
                 (h, w),
                 depth_mode=self.train_cfg.depth_mode,
                 rep = representation_gaussians, 
                 which_img=(True, True),
                 original= False
             )
-            
+        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS/{name}/{self.test_cfg.overlap_range}/{self.test_cfg.title}"
 
-            # output_interpolate = output_interpolate
-            if cam == 0:
-                color_interpolate_final = output_interpolate.color.cpu()
-            else:
-                color_interpolate_final = torch.cat((color_interpolate_final, output_interpolate.color.cpu()), axis = 1)
-        import os   
-        FOLDER_NAME = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/MASKED_OURS_90__"
-        os.makedirs( FOLDER_NAME , exist_ok = True)
-        batch_size = batch["context"]["far"].shape[0]
-        import uuid
-        import torchvision
-        for b in range(batch_size):
-            img_list = []
-            num_views = batch["context"]["far"].shape[1]
+        os.makedirs(OUTPUT_FOLDER_PATH, exist_ok=True)
+        images_prob = output.color[0]
+        rgb_gt = batch["target"]["image"][0]
 
-            for n_view in range(num_views):
-                img = color_interpolate_final[b][n_view].detach().cpu()/color_interpolate_final[b][n_view].detach().cpu().max()
+        for index, color in zip(batch["target"]["index"][0], images_prob):
+            path_here =  f"{OUTPUT_FOLDER_PATH}/SCENE/{scene}/RENDERED_color"
+            os.makedirs(path_here, exist_ok=True)
+            save_image(color,path_here + "/" + f"{index:0>6}.png")
+        for i in range(rgb_gt.shape[0]):
+            path_here =  f"{OUTPUT_FOLDER_PATH}/SCENE/{scene}/GT_color"
+            os.makedirs(path_here, exist_ok=True)
+            save_image(rgb_gt[i],  f"{path_here}/{batch['target']['index'][0][i]:0>6}.png")
 
+        for i in range(  batch['context']['image'].shape[1] )  :
+            path_here =f"{OUTPUT_FOLDER_PATH}/SCENE/{scene}/CONTEXT"
+            os.makedirs(path_here, exist_ok=True)
+            save_image( inverse_normalize(batch['context']['image'][0][i]), f"{path_here}/{batch['context']['index'][0][i]:0>6}.png")
 
-                img_list.append(img)
-            name =str( uuid.uuid4())
+        for i in range(  batch['context']['image'].shape[1] )  :
+            path_here =f"{OUTPUT_FOLDER_PATH}/SCENE/{scene}/Masked"
+            os.makedirs(path_here, exist_ok=True)
+            save_image(masked_img[i], f"{path_here}/{batch['context']['index'][0][i]:0>6}.png")
 
-            context_img = inverse_normalize(batch["context"]["image"][b])
-            mask = batch["context"]["rep"][0].unsqueeze(1)
-            masked_img = context_img * mask
-            save_video(color_interpolate_final[b], f"{FOLDER_NAME}/test_video{b}__{name}.mp4")
-            torchvision.utils.save_image( masked_img , f'{FOLDER_NAME}/context_{b}__{name}.png')
-            torchvision.utils.save_image(color_interpolate_final[b], f"{FOLDER_NAME}/test_interpolate{b}__{name}.png")
+# inverse_normalize(batch["context"]["image"][0])
 
-        # import imageio
-        # with 
+        if batch_idx < self.test_cfg.eval_time_skip_steps:
+            self.time_skip_steps_dict["encoder"] += 1
+            self.time_skip_steps_dict["decoder"] += v
+        rgb = images_prob
 
+        if f"psnr" not in self.test_step_outputs:
+            self.test_step_outputs[f"psnr"] = []
+        if f"ssim" not in self.test_step_outputs:
+            self.test_step_outputs[f"ssim"] = []
+        if f"lpips" not in self.test_step_outputs:
+            self.test_step_outputs[f"lpips"] = []
 
- 
-
-
-
-
-
-
-
-
-        # align the target pose
-
-        if self.test_cfg.align_pose:
-            output = self.test_step_align(batch, gaussians)
-        else:
-            with self.benchmarker.time("decoder", num_calls=v):
-                representation_gaussians = batch["context"]["rep"]
-
-                output = self.decoder.forward(
-                                    gaussians,
-                                    batch["target"]["extrinsics"],
-                                    batch["target"]["intrinsics"],
-                                    batch["target"]["near"],
-                                    batch["target"]["far"],
-                                    (h, w),
-                                    rep = representation_gaussians, which_img=(True, True) , original=False
-                                )
-        # exit()
-        # compute scores
-        if self.test_cfg.compute_scores:
-            overlap = batch["context"]["overlap"][0]
-            overlap_tag = get_overlap_tag(overlap)
-
-            rgb_pred = output.color[0]
-            rgb_gt = batch["target"]["image"][0]
-            all_metrics = {
-                f"lpips_ours": compute_lpips(rgb_gt, rgb_pred).mean(),
-                f"ssim_ours": compute_ssim(rgb_gt, rgb_pred).mean(),
-                f"psnr_ours": compute_psnr(rgb_gt, rgb_pred).mean(),    
-            }
-            methods = ['ours']
-
-            self.log_dict(all_metrics)
-            self.print_preview_metrics(all_metrics, methods, overlap_tag=overlap_tag)
-
-        # Save images.
-        (scene,) = batch["scene"]
-        name = get_cfg()["wandb"]["name"]
-        # path = self.test_cfg.output_path / name
-        folder_name = "0_RE10K"
-        path = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images"
-
-        path_create = Path(f"{path}") 
-        path_create.mkdir(parents=True, exist_ok=True)
-
-
-        # if self.test_cfg.save_image:
-        # for index, color in zip(batch["target"]["index"][0], output.color[0]):
-        #     save_image(color, path / scene / f"color/{index:0>6}.png")
-
-        # if self.test_cfg.save_video:
-        #     frame_str = "_".join([str(x.item()) for x in batch["context"]["index"][0]])
-        #     save_video(
-        #         [a for a in output.color[0]],
-        #         path / "video" / f"{scene}_frame_{frame_str}.mp4",
-        #     )
-
-        # if self.test_cfg.save_compare:
-            # Construct comparison image.
-        context_img = inverse_normalize(batch["context"]["image"][0])
-        mask = batch["context"]["rep"][0].unsqueeze(1)
-        masked_img = context_img * mask
-        comparison = hcat(
-            add_label(vcat(*masked_img), "Context"),
-            add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
-            add_label(vcat(*rgb_pred), "Target (Prediction)"),
+        self.test_step_outputs[f"psnr"].append(
+            compute_psnr(rgb_gt, rgb).mean().item()
         )
-        save_image(comparison, f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images/{scene}.png")
+        self.test_step_outputs[f"ssim"].append(
+            compute_ssim(rgb_gt, rgb).mean().item()
+        )
+        self.test_step_outputs[f"lpips"].append(
+            compute_lpips(rgb_gt, rgb).mean().item()
+        )
+
+    
 
     def test_step_align(self, batch, gaussians):
         self.encoder.eval()
@@ -688,14 +597,43 @@ class ModelWrapper(LightningModule):
         )
 
         return output
-
     def on_test_end(self) -> None:
+
         name = get_cfg()["wandb"]["name"]
-        self.benchmarker.dump(self.test_cfg.output_path / name / "benchmark.json")
-        self.benchmarker.dump_memory(
-            self.test_cfg.output_path / name / "peak_memory.json"
-        )
-        self.benchmarker.summarize()
+
+
+        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS/{name}/{self.test_cfg.overlap_range }/{self.test_cfg.title }"
+        os.makedirs(OUTPUT_FOLDER_PATH, exist_ok=True)
+
+        saved_scores = {}
+        if self.test_cfg.compute_scores:
+            self.benchmarker.dump_memory(Path(OUTPUT_FOLDER_PATH + "/"+  "peak_memory.json"))
+            self.benchmarker.dump(Path(OUTPUT_FOLDER_PATH   + "/"+   "benchmark.json"))
+
+            for metric_name, metric_scores in self.test_step_outputs.items():
+                avg_scores = sum(metric_scores) / len(metric_scores)
+                saved_scores[metric_name] = avg_scores
+                print(metric_name, avg_scores)
+                
+                with (Path(OUTPUT_FOLDER_PATH  + "/"+   f"scores_{metric_name}_all.json")).open("w") as f:
+                    json.dump(metric_scores, f)
+                
+                metric_scores.clear()
+
+            for tag, times in self.benchmarker.execution_times.items():
+                times = times[int(self.time_skip_steps_dict[tag]) :]
+                saved_scores[tag] = [len(times), np.mean(times)]
+                print(f"{tag}: {len(times)} calls, avg. {np.mean(times)} seconds per call")
+                self.time_skip_steps_dict[tag] = 0
+
+            with (Path(OUTPUT_FOLDER_PATH  + "/"+   "scores_all_avg.json")).open("w") as f:
+                json.dump(saved_scores, f)
+            
+            self.benchmarker.clear_history()
+        else:
+            self.benchmarker.dump(Path(OUTPUT_FOLDER_PATH  + "/"+   "benchmark.json"))
+            self.benchmarker.dump_memory(Path(OUTPUT_FOLDER_PATH + "/"+   "peak_memory.json"))
+            self.benchmarker.summarize()
 
     @rank_zero_only
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
