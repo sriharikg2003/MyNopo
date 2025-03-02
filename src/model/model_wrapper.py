@@ -592,6 +592,10 @@ class ModelWrapper(LightningModule):
                                     (h, w),
                                     rep = representation_gaussians, which_img=(True, True) , original=False
                                 )
+
+        torchvision.utils.save_image((output.color[0][0]) , f"{filename}/rendered_target1.png")
+        torchvision.utils.save_image((output.color[0][1]) , f"{filename}/rendered_target2.png")
+        torchvision.utils.save_image((output.color[0][2]) , f"{filename}/rendered_target3.png")
         # exit()
         # compute scores
         if self.test_cfg.compute_scores:
