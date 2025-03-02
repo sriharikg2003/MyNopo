@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from einops import rearrange
 from jaxtyping import Float
 import os
+import random
 import time
 from torch import Tensor, nn
 from typing import Tuple
@@ -192,7 +193,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         self.patch_size = self.backbone.patch_embed.patch_size[0]
         self.raw_gs_dim = 1 + self.gaussian_adapter.d_in  # 1 for opacity
-        self.prune_percent = cfg.prune_percent
+        self.prune_percent =  random.choice([0,80])
         self.gs_params_head_type = cfg.gs_params_head_type
 
         self.set_center_head(output_mode='pts3d', head_type='dpt', landscape_only=True,
@@ -301,7 +302,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                         print(f"Warning: Key {key} not found in sp_wave_values")
             mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
 
-
+            
             left = int(len(sp_cord.keys()) * self.prune_percent / 100)
             right = len(sp_cord.keys()) - left 
             indices = np.argsort(mean_wavelet_values)
