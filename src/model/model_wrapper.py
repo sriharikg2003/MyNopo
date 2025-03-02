@@ -397,16 +397,16 @@ class ModelWrapper(LightningModule):
         batch["context"]["image"][0] = masked_img
         representation_gaussians = batch["context"]["rep"]
 
-
+        breakpoint()
         # gaussians.means[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.covariances[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.opacities[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.harmonics[ ~representation_gaussians.reshape(b,-1) ] = 0
-        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
-        gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
-        gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        gaussians.opacities = gaussians.opacities * gauss_mask
+        # gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
+        # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.opacities = gaussians.opacities * gauss_mask
 
 
         # num_interpolated_views = 60
@@ -532,14 +532,14 @@ class ModelWrapper(LightningModule):
             self.print_preview_metrics(all_metrics, methods, overlap_tag=overlap_tag)
 
         # Save images.
-        (scene,) = batch["scene"]
-        name = get_cfg()["wandb"]["name"]
-        # path = self.test_cfg.output_path / name
-        folder_name = "0_RE10K"
-        path = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images"
+        # (scene,) = batch["scene"]
+        # name = get_cfg()["wandb"]["name"]
+        # # path = self.test_cfg.output_path / name
+        # folder_name = "0_RE10K"
+        # path = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images"
 
-        path_create = Path(f"{path}") 
-        path_create.mkdir(parents=True, exist_ok=True)
+        # path_create = Path(f"{path}") 
+        # path_create.mkdir(parents=True, exist_ok=True)
 
 
         # if self.test_cfg.save_image:
@@ -555,15 +555,15 @@ class ModelWrapper(LightningModule):
 
         # if self.test_cfg.save_compare:
             # Construct comparison image.
-        context_img = inverse_normalize(batch["context"]["image"][0])
-        mask = batch["context"]["rep"][0].unsqueeze(1)
-        masked_img = context_img * mask
-        comparison = hcat(
-            add_label(vcat(*masked_img), "Context"),
-            add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
-            add_label(vcat(*rgb_pred), "Target (Prediction)"),
-        )
-        save_image(comparison, f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images/{scene}.png")
+        # context_img = inverse_normalize(batch["context"]["image"][0])
+        # mask = batch["context"]["rep"][0].unsqueeze(1)
+        # masked_img = context_img * mask
+        # comparison = hcat(
+        #     add_label(vcat(*masked_img), "Context"),
+        #     add_label(vcat(*rgb_gt), "Target (Ground Truth)"),
+        #     add_label(vcat(*rgb_pred), "Target (Prediction)"),
+        # )
+        # save_image(comparison, f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/{folder_name}/images/{scene}.png")
 
     def test_step_align(self, batch, gaussians):
         self.encoder.eval()

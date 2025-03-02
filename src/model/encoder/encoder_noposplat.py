@@ -129,8 +129,6 @@ def export_ply(
     elements[:] = list(map(tuple, attributes))
     path.parent.mkdir(exist_ok=True, parents=True)
     PlyData([PlyElement.describe(elements, "vertex")]).write(path)
-
-
 @dataclass
 class OpacityMappingCfg:
     initial: float
@@ -349,199 +347,199 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 #####
 
         #Save original point cloud
-        pts_all_original = pts_all.squeeze(-2)  # Shape: [1, 2, 65536, 3]
-        pts_all_original = pts_all_original.reshape(-1, 3)  # Shape: [N, 3]
-        image_original = context["image"].squeeze(0)  # Remove batch dim, shape: [2, 3, 256, 256]
-        image_original = inverse_normalize_image(image_original) * 255
-        image_original = image_original.permute(0, 2, 3, 1)  # Shape: [2, 256, 256, 3]
-        image_original = image_original.detach().cpu().numpy().astype(np.uint8)
-        image_original = image_original.reshape(-1, 3)  # Shape: [N, 3]
-        x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
-        r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
-        save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/original_point_cloud.ply")
+        # pts_all_original = pts_all.squeeze(-2)  # Shape: [1, 2, 65536, 3]
+        # pts_all_original = pts_all_original.reshape(-1, 3)  # Shape: [N, 3]
+        # image_original = context["image"].squeeze(0)  # Remove batch dim, shape: [2, 3, 256, 256]
+        # image_original = inverse_normalize_image(image_original) * 255
+        # image_original = image_original.permute(0, 2, 3, 1)  # Shape: [2, 256, 256, 3]
+        # image_original = image_original.detach().cpu().numpy().astype(np.uint8)
+        # image_original = image_original.reshape(-1, 3)  # Shape: [N, 3]
+        # x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
+        # r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
+        # save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/original_point_cloud.ply")
 
 
-######
-        # 10 CLuster
+# ######
+#         # 10 CLuster
 
-        for b in range(context['image'].size(0)):  # Iterate over batch
-            fraction = 40
-            pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
-            pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
+#         for b in range(context['image'].size(0)):  # Iterate over batch
+#             fraction = 40
+#             pts1_append = torch.cat((res1['pts3d'][b], context['image'][b, 0].permute(1, 2, 0)), dim=-1)
+#             pts2_append = torch.cat((res2['pts3d'][b], context['image'][b, 1].permute(1, 2, 0)), dim=-1)
 
-            # Flatten into a (N, 6) tensor
-            tensor_data = torch.cat((pts1_append, pts2_append), dim=0).reshape(-1, 6)
+#             # Flatten into a (N, 6) tensor
+#             tensor_data = torch.cat((pts1_append, pts2_append), dim=0).reshape(-1, 6)
 
-            # Ensure no gradients are tracked
-            tensor_data = tensor_data.detach()
+#             # Ensure no gradients are tracked
+#             tensor_data = tensor_data.detach()
 
-            # Use GPU if available
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            tensor_data = tensor_data.to(device)
+#             # Use GPU if available
+#             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#             tensor_data = tensor_data.to(device)
 
-            # Reshape to match KMeans expected input shape (BS, N, D)
-            tensor_data = tensor_data.unsqueeze(0)  # Adds batch dimension (1, N, D)
+#             # Reshape to match KMeans expected input shape (BS, N, D)
+#             tensor_data = tensor_data.unsqueeze(0)  # Adds batch dimension (1, N, D)
 
-            kmeans = KMeans(n_clusters=10, mode='euclidean', verbose=0)
+#             kmeans = KMeans(n_clusters=10, mode='euclidean', verbose=0)
     
-            # Perform clustering
-            start  = time.time()
-            cluster_result = kmeans.fit_predict(tensor_data)  # Returns a ClusterResult object
+#             # Perform clustering
+#             start  = time.time()
+#             cluster_result = kmeans.fit_predict(tensor_data)  # Returns a ClusterResult object
 
-            print(f"##CLUSTER {time.time()-start}")
-            cluster_labels = cluster_result   
+#             print(f"##CLUSTER {time.time()-start}")
+#             cluster_labels = cluster_result   
 
-            # Reshape cluster labels back to original dimensions
-            num_pts1 = pts1_append.shape[0] * pts1_append.shape[1]  # Total points in first image
-            pts1_cluster_label = cluster_labels[0][:num_pts1].reshape(pts1_append.shape[0], pts1_append.shape[1])
-            pts2_cluster_label = cluster_labels[0][num_pts1:].reshape(pts2_append.shape[0], pts2_append.shape[1])
+#             # Reshape cluster labels back to original dimensions
+#             num_pts1 = pts1_append.shape[0] * pts1_append.shape[1]  # Total points in first image
+#             pts1_cluster_label = cluster_labels[0][:num_pts1].reshape(pts1_append.shape[0], pts1_append.shape[1])
+#             pts2_cluster_label = cluster_labels[0][num_pts1:].reshape(pts2_append.shape[0], pts2_append.shape[1])
 
-            # Ensure labels are on the correct device
-            pts1_cluster_label = pts1_cluster_label.to(device)
-            pts2_cluster_label = pts2_cluster_label.to(device)
+#             # Ensure labels are on the correct device
+#             pts1_cluster_label = pts1_cluster_label.to(device)
+#             pts2_cluster_label = pts2_cluster_label.to(device)
 
 
-            super_pixel_coordinates_1 = {i: [] for i in range(pts1_cluster_label.min(), pts1_cluster_label.max() + 1)}
+#             super_pixel_coordinates_1 = {i: [] for i in range(pts1_cluster_label.min(), pts1_cluster_label.max() + 1)}
             
-            for i in range(pts1_cluster_label.shape[0]):
-                for j in range(pts1_cluster_label.shape[1]):
-                    super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
+#             for i in range(pts1_cluster_label.shape[0]):
+#                 for j in range(pts1_cluster_label.shape[1]):
+#                     super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             
-            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=fraction)
+#             selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=fraction)
   
             
-            representation_gaussians_1 = []
-            for sp in selected_superpixels:
-                num_pixels = int(len(super_pixel_coordinates_1[sp]) * 10 / 100)
-                representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
+#             representation_gaussians_1 = []
+#             for sp in selected_superpixels:
+#                 num_pixels = int(len(super_pixel_coordinates_1[sp]) * 10 / 100)
+#                 representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
 
-            mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
-            for sp in selected_superpixels:
-                for x, y in super_pixel_coordinates_1[sp]:
-                    mask[x, y] = False
+#             mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
+#             for sp in selected_superpixels:
+#                 for x, y in super_pixel_coordinates_1[sp]:
+#                     mask[x, y] = False
                     
 
-            for x, y in representation_gaussians_1:
-                mask[x, y] = True
+#             for x, y in representation_gaussians_1:
+#                 mask[x, y] = True
 
 
             
-            # torchvision.utils.save_image(context['image'][b, 0] , "del.png")
-            plt.imshow(mask, cmap="gray")
+#             # torchvision.utils.save_image(context['image'][b, 0] , "del.png")
+#             plt.imshow(mask, cmap="gray")
 
 
-            plt.savefig(f"mask_3d_{1}.png", bbox_inches='tight')
-            plt.close()
+#             plt.savefig(f"mask_3d_{1}.png", bbox_inches='tight')
+#             plt.close()
 
-            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][0].device)
-
-
-            context['rep'][b][0] = mask_tensor
+#             mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][0].device)
 
 
-            super_pixel_coordinates_2 = {i: [] for i in range(pts2_cluster_label.min(), pts2_cluster_label.max() + 1)}
-            for i in range(pts2_cluster_label.shape[0]):
-                for j in range(pts2_cluster_label.shape[1]):
-                    super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
-            representation_gaussians_2 = []
-            mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool) 
-            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label , percentage=fraction) 
-            for sp in selected_superpixels:
-                if sp in super_pixel_coordinates_2:
-                    num_pixels = int(len(super_pixel_coordinates_2[sp]) * 10 / 100)
-                    representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
+#             context['rep'][b][0] = mask_tensor
+
+
+#             super_pixel_coordinates_2 = {i: [] for i in range(pts2_cluster_label.min(), pts2_cluster_label.max() + 1)}
+#             for i in range(pts2_cluster_label.shape[0]):
+#                 for j in range(pts2_cluster_label.shape[1]):
+#                     super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
+#             representation_gaussians_2 = []
+#             mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool) 
+#             selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label , percentage=fraction) 
+#             for sp in selected_superpixels:
+#                 if sp in super_pixel_coordinates_2:
+#                     num_pixels = int(len(super_pixel_coordinates_2[sp]) * 10 / 100)
+#                     representation_gaussians_2.extend(random.sample(super_pixel_coordinates_2[sp], num_pixels))
                 
-                else:
-                    print(sp , "******")
+#                 else:
+#                     print(sp , "******")
 
-            for sp in selected_superpixels:
-                if sp in super_pixel_coordinates_2:
-                    for x, y in super_pixel_coordinates_2[sp]:
-                        mask[x, y] = False
+#             for sp in selected_superpixels:
+#                 if sp in super_pixel_coordinates_2:
+#                     for x, y in super_pixel_coordinates_2[sp]:
+#                         mask[x, y] = False
                         
 
-            for x, y in representation_gaussians_2:
-                mask[x, y] = True
+#             for x, y in representation_gaussians_2:
+#                 mask[x, y] = True
 
 
 
 
 
-            # torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
-            plt.imshow(mask, cmap="gray")
+#             # torchvision.utils.save_image(context['image'][b, 1] , "del1.png")
+#             plt.imshow(mask, cmap="gray")
 
 
-            plt.savefig(f"mask_3d_{2}.png", bbox_inches='tight')
-            plt.close()
+#             plt.savefig(f"mask_3d_{2}.png", bbox_inches='tight')
+#             plt.close()
             
 
 
-            mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][1].device)
+#             mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][1].device)
 
-            # Assign to context['rep'][0][1]
-            context['rep'][b][1] = mask_tensor
+#             # Assign to context['rep'][0][1]
+#             context['rep'][b][1] = mask_tensor
 
 
 
-            data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep'] ,  "pts1_cluster_label" :  pts1_cluster_label , "pts2_cluster_label" :  pts2_cluster_label}
+#             data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep'] ,  "pts1_cluster_label" :  pts1_cluster_label , "pts2_cluster_label" :  pts2_cluster_label}
 
-            torchvision.utils.save_image(inverse_normalize_image(context['image'][0][0]) , f"{folder_name}/context1.png")
-            torchvision.utils.save_image(inverse_normalize_image(context['image'][0][1]) , f"{folder_name}/context2.png")
-            torchvision.utils.save_image(context['rep'][0][0].float() , f"{folder_name}/10_mask1.png")
-            torchvision.utils.save_image(context['rep'][0][1].float(), f"{folder_name}/10_mask2.png")
-            torch.save(data, f"{folder_name}/10_data.pt")
+#             torchvision.utils.save_image(inverse_normalize_image(context['image'][0][0]) , f"{folder_name}/context1.png")
+#             torchvision.utils.save_image(inverse_normalize_image(context['image'][0][1]) , f"{folder_name}/context2.png")
+#             torchvision.utils.save_image(context['rep'][0][0].float() , f"{folder_name}/10_mask1.png")
+#             torchvision.utils.save_image(context['rep'][0][1].float(), f"{folder_name}/10_mask2.png")
+#             torch.save(data, f"{folder_name}/10_data.pt")
 
 
 
   
-            # Masked 3d Point cloud
-            rep_mask = context["rep"].squeeze(0).reshape(-1).cpu().numpy()
-            false_mask = rep_mask == False
-            x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
-            r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
-            r[false_mask] = 255
-            g[false_mask] = 0
-            b[false_mask] = 0
-            x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
-            save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/10_masked_point_cloud.ply")
+#             # Masked 3d Point cloud
+#             rep_mask = context["rep"].squeeze(0).reshape(-1).cpu().numpy()
+#             false_mask = rep_mask == False
+#             x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
+#             r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
+#             r[false_mask] = 255
+#             g[false_mask] = 0
+#             b[false_mask] = 0
+#             x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
+#             save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/10_masked_point_cloud.ply")
             
 
 
 
-            # CLustered
-            pts1_cluster_label = pts1_cluster_label.detach().cpu().numpy().reshape(-1)  # Flatten
-            pts2_cluster_label = pts2_cluster_label.detach().cpu().numpy().reshape(-1)
+#             # CLustered
+#             pts1_cluster_label = pts1_cluster_label.detach().cpu().numpy().reshape(-1)  # Flatten
+#             pts2_cluster_label = pts2_cluster_label.detach().cpu().numpy().reshape(-1)
 
-            # Merge labels
-            cluster_labels_all = np.concatenate((pts1_cluster_label, pts2_cluster_label), axis=0)
+#             # Merge labels
+#             cluster_labels_all = np.concatenate((pts1_cluster_label, pts2_cluster_label), axis=0)
 
-            # Assign colors based on unique labels
-            unique_labels = np.unique(cluster_labels_all)
-            colormap = plt.get_cmap("tab10")  # Use 'tab10' or another colormap
+#             # Assign colors based on unique labels
+#             unique_labels = np.unique(cluster_labels_all)
+#             colormap = plt.get_cmap("tab10")  # Use 'tab10' or another colormap
 
-            # Create a mapping from label to color
-            label_to_color = {label: colormap(i / len(unique_labels))[:3] for i, label in enumerate(unique_labels)}
+#             # Create a mapping from label to color
+#             label_to_color = {label: colormap(i / len(unique_labels))[:3] for i, label in enumerate(unique_labels)}
 
-            # Convert cluster labels to RGB colors
-            colors1 = np.array([label_to_color[label] for label in pts1_cluster_label]) * 255  # Scale to [0,255]
-            colors2 = np.array([label_to_color[label] for label in pts2_cluster_label]) * 255
+#             # Convert cluster labels to RGB colors
+#             colors1 = np.array([label_to_color[label] for label in pts1_cluster_label]) * 255  # Scale to [0,255]
+#             colors2 = np.array([label_to_color[label] for label in pts2_cluster_label]) * 255
 
-            # Prepare 3D points
-            pts1 = pts3d1.detach().cpu().numpy().reshape(-1, 3)
-            pts2 = pts3d2.detach().cpu().numpy().reshape(-1, 3)
+#             # Prepare 3D points
+#             pts1 = pts3d1.detach().cpu().numpy().reshape(-1, 3)
+#             pts2 = pts3d2.detach().cpu().numpy().reshape(-1, 3)
 
-            # Ensure colors are also on CPU and converted to NumPy
-            colors1 = colors1.detach().cpu().numpy() if torch.is_tensor(colors1) else colors1
-            colors2 = colors2.detach().cpu().numpy() if torch.is_tensor(colors2) else colors2
+#             # Ensure colors are also on CPU and converted to NumPy
+#             colors1 = colors1.detach().cpu().numpy() if torch.is_tensor(colors1) else colors1
+#             colors2 = colors2.detach().cpu().numpy() if torch.is_tensor(colors2) else colors2
 
-            # Merge points
-            x = np.concatenate((pts1[:, 0], pts2[:, 0]))
-            y = np.concatenate((pts1[:, 1], pts2[:, 1]))
-            z = np.concatenate((pts1[:, 2], pts2[:, 2]))
-            r = np.concatenate((colors1[:, 0], colors2[:, 0]))
-            g = np.concatenate((colors1[:, 1], colors2[:, 1]))
-            b = np.concatenate((colors1[:, 2], colors2[:, 2]))
-            save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/10_clustered_point_cloud.ply")
+#             # Merge points
+#             x = np.concatenate((pts1[:, 0], pts2[:, 0]))
+#             y = np.concatenate((pts1[:, 1], pts2[:, 1]))
+#             z = np.concatenate((pts1[:, 2], pts2[:, 2]))
+#             r = np.concatenate((colors1[:, 0], colors2[:, 0]))
+#             g = np.concatenate((colors1[:, 1], colors2[:, 1]))
+#             b = np.concatenate((colors1[:, 2], colors2[:, 2]))
+#             save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/10_clustered_point_cloud.ply")
 
 
 # 300 clusters masking
@@ -665,24 +663,24 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
 
-            data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep'] ,  "pts1_cluster_label" :  pts1_cluster_label , "pts2_cluster_label" :  pts2_cluster_label}
+            # data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep'] ,  "pts1_cluster_label" :  pts1_cluster_label , "pts2_cluster_label" :  pts2_cluster_label}
 
 
-            torchvision.utils.save_image(context['rep'][0][0].float() , f"{folder_name}/300_mask1.png")
-            torchvision.utils.save_image(context['rep'][0][1].float(), f"{folder_name}/300_mask2.png")
-            torch.save(data, f"{folder_name}/300_data.pt")
+            # torchvision.utils.save_image(context['rep'][0][0].float() , f"{folder_name}/300_mask1.png")
+            # torchvision.utils.save_image(context['rep'][0][1].float(), f"{folder_name}/300_mask2.png")
+            # torch.save(data, f"{folder_name}/300_data.pt")
 
   
-            # Masked 3d Point cloud
-            rep_mask = context["rep"].squeeze(0).reshape(-1).cpu().numpy()
-            false_mask = rep_mask == False
-            x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
-            r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
-            r[false_mask] = 255
-            g[false_mask] = 0
-            b[false_mask] = 0
-            x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
-            save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/300_masked_point_cloud.ply")
+            # # Masked 3d Point cloud
+            # rep_mask = context["rep"].squeeze(0).reshape(-1).cpu().numpy()
+            # false_mask = rep_mask == False
+            # x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
+            # r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
+            # r[false_mask] = 255
+            # g[false_mask] = 0
+            # b[false_mask] = 0
+            # x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
+            # save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/300_masked_point_cloud.ply")
             
 
 
@@ -731,7 +729,37 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
 
-        # rep = context['rep']
+        # Dump visualizations if needed.
+        if visualization_dump is not None:
+            visualization_dump["depth"] = rearrange(
+                depths, "b v (h w) srf s -> b v h w srf s", h=h, w=w
+            )
+            visualization_dump["scales"] = rearrange(
+                gaussians.scales, "b v r srf spp xyz -> b (v r srf spp) xyz"
+            )
+            visualization_dump["rotations"] = rearrange(
+                gaussians.rotations, "b v r srf spp xyzw -> b (v r srf spp) xyzw"
+            )
+            visualization_dump["means"] = rearrange(
+                gaussians.means, "b v (h w) srf spp xyz -> b v h w (srf spp) xyz", h=h, w=w
+            )
+            visualization_dump['opacities'] = rearrange(
+                gaussians.opacities, "b v (h w) srf s -> b v h w srf s", h=h, w=w
+            )
+
+    # means: Float[Tensor, "*batch 3"]
+    # covariances: Float[Tensor, "*batch 3 3"]
+    # scales: Float[Tensor, "*batch 3"]
+    # rotations: Float[Tensor, "*batch 4"]
+    # harmonics: Float[Tensor, "*batch 3 _"]
+    # opacities: Float[Tensor, " *batch"]
+
+
+
+
+
+
+        rep = context['rep']
         # gaussians_means_reshaped = gaussians.means.view(b, 2, h, w, 3)
         # gaussians_covariances_reshaped = gaussians.covariances.view(b, 2, h, w, 3, 3)
         # gaussians_harmonics_reshaped = gaussians.harmonics.view(b, 2, h, w, 3, 25)
@@ -757,32 +785,28 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         
         # gaussians.scales  = gaussians.scales  * rep.view(b, 2, 65536, 1, 1, 1)  
-        # export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path('/workspace/raid/cdsbad/splat3r_try/NoPoSplat/mask.ply'))
 
-        # Dump visualizations if needed.
-        if visualization_dump is not None:
-            visualization_dump["depth"] = rearrange(
-                depths, "b v (h w) srf s -> b v h w srf s", h=h, w=w
-            )
-            visualization_dump["scales"] = rearrange(
-                gaussians.scales, "b v r srf spp xyz -> b (v r srf spp) xyz"
-            )
-            visualization_dump["rotations"] = rearrange(
-                gaussians.rotations, "b v r srf spp xyzw -> b (v r srf spp) xyzw"
-            )
-            visualization_dump["means"] = rearrange(
-                gaussians.means, "b v (h w) srf spp xyz -> b v h w (srf spp) xyz", h=h, w=w
-            )
-            visualization_dump['opacities'] = rearrange(
-                gaussians.opacities, "b v (h w) srf s -> b v h w srf s", h=h, w=w
-            )
 
-    # means: Float[Tensor, "*batch 3"]
-    # covariances: Float[Tensor, "*batch 3 3"]
-    # scales: Float[Tensor, "*batch 3"]
-    # rotations: Float[Tensor, "*batch 4"]
-    # harmonics: Float[Tensor, "*batch 3 _"]
-    # opacities: Float[Tensor, " *batch"]
+        b=1
+        torch.cuda.empty_cache()  # Free GPU memory after each chunk
+
+        gauss_mask = rep.view(b, -1) 
+        # breakpoint()
+        # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1) 
+        # gaussians.scales = gaussians.scales * gauss_mask.unsqueeze(-1) 
+        # gaussians.rotations = gaussians.rotations * gauss_mask.unsqueeze(-1) 
+        # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # gaussians.opacities = gaussians.opacities * gauss_mask
+ 
+    
+        torch.cuda.empty_cache()  # Free GPU memory after each chunk
+
+        # export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path(f"{folder_name}/gauss.ply"))
+
+
+
+
 
 
 
