@@ -5,6 +5,75 @@ import time
 import moviepy.editor as mpy
 import torch
 import wandb
+from plyfile import PlyData, PlyElement
+from scipy.spatial.transform import Rotation as R
+import numpy as np
+
+
+def construct_list_of_attributes(num_rest: int) -> list[str]:
+    attributes = ["x", "y", "z", "nx", "ny", "nz"]
+    for i in range(3):
+        attributes.append(f"f_dc_{i}")
+    for i in range(num_rest):
+        attributes.append(f"f_rest_{i}")
+    attributes.append("opacity")
+    for i in range(3):
+        attributes.append(f"scale_{i}")
+    for i in range(4):
+        attributes.append(f"rot_{i}")
+    return attributes
+
+
+def export_ply(
+    means,
+    scales,
+    rotations,
+    harmonics,
+    opacities,
+    path,
+    shift_and_scale = False,
+    save_sh_dc_only= True,
+):
+
+    if shift_and_scale:
+        # Shift the scene so that the median Gaussian is at the origin.
+        means = means - means.median(dim=0).values
+
+        # Rescale the scene so that most Gaussians are within range [-1, 1].
+        scale_factor = means.abs().quantile(0.95, dim=0).max()
+        means = means / scale_factor
+        scales = scales / scale_factor
+
+    # Apply the rotation to the Gaussian rotations.
+    rotations = R.from_quat(rotations.detach().cpu().numpy()).as_matrix()
+    rotations = R.from_matrix(rotations).as_quat()
+    x, y, z, w = rearrange(rotations, "g xyzw -> xyzw g")
+    rotations = np.stack((w, x, y, z), axis=-1)
+
+    # Since current model use SH_degree = 4,
+    # which require large memory to store, we can only save the DC band to save memory.
+    f_dc = harmonics[..., 0]
+    f_rest = harmonics[..., 1:].flatten(start_dim=1)
+
+    dtype_full = [(attribute, "f4") for attribute in construct_list_of_attributes(0 if save_sh_dc_only else f_rest.shape[1])]
+    elements = np.empty(means.shape[0], dtype=dtype_full)
+    attributes = [
+        means.detach().cpu().numpy(),
+        torch.zeros_like(means).detach().cpu().numpy(),
+        f_dc.detach().cpu().contiguous().numpy(),
+        f_rest.detach().cpu().contiguous().numpy(),
+        opacities[..., None].detach().cpu().numpy(),
+        scales.log().detach().cpu().numpy(),
+        rotations,
+    ]
+    if save_sh_dc_only:
+        # remove f_rest from attributes
+        attributes.pop(3)
+
+    attributes = np.concatenate(attributes, axis=1)
+    elements[:] = list(map(tuple, attributes))
+    path.parent.mkdir(exist_ok=True, parents=True)
+    PlyData([PlyElement.describe(elements, "vertex")]).write(path)
 from einops import pack, rearrange, repeat
 from jaxtyping import Float
 from lightning.pytorch import LightningModule
@@ -172,7 +241,7 @@ class ModelWrapper(LightningModule):
         visualization_dump = None
         if self.distiller is not None:
             visualization_dump = {}
-        gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump)
+        gaussians , gaussian_mod = self.encoder(batch["context"], self.global_step, visualization_dump=visualization_dump )
         
         representation_gaussians = batch["context"]["rep"]
 
@@ -397,16 +466,26 @@ class ModelWrapper(LightningModule):
         batch["context"]["image"][0] = masked_img
         representation_gaussians = batch["context"]["rep"]
 
-        breakpoint()
+
         # gaussians.means[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.covariances[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.opacities[ ~representation_gaussians.reshape(b,-1) ] = 0
         # gaussians.harmonics[ ~representation_gaussians.reshape(b,-1) ] = 0
-        # gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
+        gauss_mask = representation_gaussians.view(b, -1)  # Flatten spatial dims
         # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1)  # Ensure correct broadcasting
         # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
         # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
         # gaussians.opacities = gaussians.opacities * gauss_mask
+
+        filename = "3D_aware_output/"+str(batch_idx)
+        import os
+        os.makedirs(filename , exist_ok=True)
+        import torchvision
+        torchvision.utils.save_image((batch['target']['image'][0][0]) , f"{filename}/target1.png")
+        torchvision.utils.save_image((batch['target']['image'][0][2]) , f"{filename}/target2.png")
+        torchvision.utils.save_image((batch['target']['image'][0][2]) , f"{filename}/target3.png")
+        export_ply( gaussians.means[:, gauss_mask.squeeze().bool(), :].reshape(-1, 3), gaussian_mod.scales[:, gauss_mask.squeeze().bool(), :].reshape(-1, 3), gaussian_mod.rotations[:, gauss_mask.squeeze().bool(), :].reshape(-1, 4), gaussians.harmonics[:, gauss_mask.squeeze().bool(), :, :].reshape(-1, 3, 25), gaussians.opacities[:, gauss_mask.squeeze().bool()].reshape(-1), path=Path(filename+"/gauss.ply") )
+
 
 
         # num_interpolated_views = 60

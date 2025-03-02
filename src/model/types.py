@@ -18,3 +18,4 @@ class Gaussians_modified:
     harmonics: Float[Tensor, "batch gaussian 3 d_sh"]
     opacities: Float[Tensor, "batch gaussian"]
     scales: Float[Tensor, "batch 3"]
+    rotations: Float[Tensor, "batch 4"]

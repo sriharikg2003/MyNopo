@@ -346,21 +346,21 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         os.makedirs(folder_name , exist_ok=True)
 #####
 
-        #Save original point cloud
-        # pts_all_original = pts_all.squeeze(-2)  # Shape: [1, 2, 65536, 3]
-        # pts_all_original = pts_all_original.reshape(-1, 3)  # Shape: [N, 3]
-        # image_original = context["image"].squeeze(0)  # Remove batch dim, shape: [2, 3, 256, 256]
-        # image_original = inverse_normalize_image(image_original) * 255
-        # image_original = image_original.permute(0, 2, 3, 1)  # Shape: [2, 256, 256, 3]
-        # image_original = image_original.detach().cpu().numpy().astype(np.uint8)
-        # image_original = image_original.reshape(-1, 3)  # Shape: [N, 3]
-        # x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
-        # r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
-        # save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/original_point_cloud.ply")
+#         #Save original point cloud
+        pts_all_original = pts_all.squeeze(-2)  # Shape: [1, 2, 65536, 3]
+        pts_all_original = pts_all_original.reshape(-1, 3)  # Shape: [N, 3]
+        image_original = context["image"].squeeze(0)  # Remove batch dim, shape: [2, 3, 256, 256]
+        image_original = inverse_normalize_image(image_original) * 255
+        image_original = image_original.permute(0, 2, 3, 1)  # Shape: [2, 256, 256, 3]
+        image_original = image_original.detach().cpu().numpy().astype(np.uint8)
+        image_original = image_original.reshape(-1, 3)  # Shape: [N, 3]
+#         x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
+#         r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
+#         save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/original_point_cloud.ply")
 
 
-# ######
-#         # 10 CLuster
+# # ######
+# #         # 10 CLuster
 
 #         for b in range(context['image'].size(0)):  # Iterate over batch
 #             fraction = 40
@@ -492,7 +492,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
   
-#             # Masked 3d Point cloud
+# #             # Masked 3d Point cloud
 #             rep_mask = context["rep"].squeeze(0).reshape(-1).cpu().numpy()
 #             false_mask = rep_mask == False
 #             x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
@@ -506,7 +506,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
 
 
-#             # CLustered
+# #             # CLustered
 #             pts1_cluster_label = pts1_cluster_label.detach().cpu().numpy().reshape(-1)  # Flatten
 #             pts2_cluster_label = pts2_cluster_label.detach().cpu().numpy().reshape(-1)
 
@@ -666,21 +666,21 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             # data = {"pts3d1": pts3d1, "pts3d2": pts3d2, "context": context['image'] ,"mask" : context['rep'] ,  "pts1_cluster_label" :  pts1_cluster_label , "pts2_cluster_label" :  pts2_cluster_label}
 
 
-            # torchvision.utils.save_image(context['rep'][0][0].float() , f"{folder_name}/300_mask1.png")
-            # torchvision.utils.save_image(context['rep'][0][1].float(), f"{folder_name}/300_mask2.png")
+            torchvision.utils.save_image(context['rep'][0][0].float() , f"{folder_name}/300_mask1.png")
+            torchvision.utils.save_image(context['rep'][0][1].float(), f"{folder_name}/300_mask2.png")
             # torch.save(data, f"{folder_name}/300_data.pt")
 
   
-            # # Masked 3d Point cloud
-            # rep_mask = context["rep"].squeeze(0).reshape(-1).cpu().numpy()
-            # false_mask = rep_mask == False
-            # x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
-            # r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
-            # r[false_mask] = 255
-            # g[false_mask] = 0
-            # b[false_mask] = 0
-            # x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
-            # save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/300_masked_point_cloud.ply")
+            # Masked 3d Point cloud
+            rep_mask = context["rep"].squeeze(0).reshape(-1).cpu().numpy()
+            false_mask = rep_mask == False
+            x, y, z = pts_all_original[:, 0], pts_all_original[:, 1], pts_all_original[:, 2]
+            r, g, b = image_original[:, 0], image_original[:, 1], image_original[:, 2]
+            r[false_mask] = 255
+            g[false_mask] = 0
+            b[false_mask] = 0
+            x, y, z = x.cpu().numpy(), y.cpu().numpy(), z.cpu().numpy()
+            save_colored_pointcloud(x, y, z, r, g, b, f"{folder_name}/300_masked_point_cloud.ply")
             
 
 
@@ -790,18 +790,18 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
         b=1
         torch.cuda.empty_cache()  # Free GPU memory after each chunk
 
-        gauss_mask = rep.view(b, -1) 
-        # breakpoint()
-        # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1) 
-        # gaussians.scales = gaussians.scales * gauss_mask.unsqueeze(-1) 
-        # gaussians.rotations = gaussians.rotations * gauss_mask.unsqueeze(-1) 
-        # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
-        # gaussians.opacities = gaussians.opacities * gauss_mask
+        # gauss_mask = rep.view(b, -1) 
+        # # breakpoint()
+        # # gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1) 
+        # # gaussians.scales = gaussians.scales * gauss_mask.unsqueeze(-1) 
+        # # gaussians.rotations = gaussians.rotations * gauss_mask.unsqueeze(-1) 
+        # # gaussians.covariances = gaussians.covariances * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # # gaussians.harmonics = gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)
+        # # gaussians.opacities = gaussians.opacities * gauss_mask
  
     
-        torch.cuda.empty_cache()  # Free GPU memory after each chunk
-
+        # torch.cuda.empty_cache()  # Free GPU memory after each chunk
+        # export_ply(( gaussians.means * gauss_mask.unsqueeze(-1) ).reshape(-1,3), (gaussian_mod.scales * gauss_mask.unsqueeze(-1) ).reshape(-1,3), (gaussian_mod.rotations * gauss_mask.unsqueeze(-1) ).reshape(-1,4),( gaussians.harmonics * gauss_mask.unsqueeze(-1).unsqueeze(-1)).reshape(-1,3,25),( gaussians.opacities * gauss_mask).reshape(-1), path=Path(f"gauss.ply"))
         # export_ply(gaussians.means.reshape(-1,3), gaussians.scales.reshape(-1,3), gaussians.rotations.reshape(-1,4), gaussians.harmonics.reshape(-1,3,25), gaussians.opacities.reshape(-1), path=Path(f"{folder_name}/gauss.ply"))
 
 
@@ -847,6 +847,10 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             ),
             rearrange(
                 gaussians.scales, "b v r srf spp xyz -> b (v r srf spp) xyz"
+            )
+            ,
+            rearrange(
+                gaussians.rotations,   "b v r srf spp xyzw -> b (v r srf spp) xyzw"
             )
             
         )
