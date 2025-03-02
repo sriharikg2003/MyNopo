@@ -306,9 +306,11 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             right = len(sp_cord.keys()) - left 
             indices = np.argsort(mean_wavelet_values)
 
-            selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
-            selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
-
+            # selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
+            # Random picking
+            selected_superpixels = np.random.choice(np.array(list(sp_cord.keys())), left, replace=False)
+            # selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
+            selected_superpixels_high = []
 
             return selected_superpixels , selected_superpixels_high
 
