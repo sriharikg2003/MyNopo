@@ -151,11 +151,11 @@ class EncoderNoPoSplatCfg:
     gaussians_per_pixel: int
     num_surfaces: int
     gs_params_head_type: str
+    prune_percent : int
     input_mean: tuple[float, float, float] = (0.5, 0.5, 0.5)
     input_std: tuple[float, float, float] = (0.5, 0.5, 0.5)
     pretrained_weights: str = ""
     pose_free: bool = True
-    prune_percent : int
 
 from pathlib import Path
 
@@ -302,7 +302,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
             mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
 
 
-            left = int(len(sp_cord.keys()) * percentage / 100)
+            left = int(len(sp_cord.keys()) * self.prune_percent / 100)
             right = len(sp_cord.keys()) - left 
             indices = np.argsort(mean_wavelet_values)
 
@@ -387,7 +387,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 for j in range(pts1_cluster_label.shape[1]):
                     super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             
-            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=fraction)
+            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=self.prune_percent)
   
             
             representation_gaussians_1 = []
@@ -425,7 +425,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                     super_pixel_coordinates_2[pts2_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             representation_gaussians_2 = []
             mask = np.ones((   context['image'].shape[-2]  , context['image'].shape[-1]   ), dtype=bool) 
-            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label , percentage=fraction) 
+            selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 1].permute(1, 2, 0) , super_pixel_coordinates_2  ,pts2_cluster_label , percentage=self.prune_percent) 
             for sp in selected_superpixels:
                 if sp in super_pixel_coordinates_2:
                     num_pixels = int(len(super_pixel_coordinates_2[sp]) * 10 / 100)
