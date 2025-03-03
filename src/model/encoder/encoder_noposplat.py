@@ -310,7 +310,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
             # Pick till we reach 
             selected_superpixels = []
-            total = 256 * 256 * 2
+            total = 256 * 256 
             required = int(total * (self.prune_percent * 0.01))
 
             # Get the ordered superpixel keys using indices
@@ -323,6 +323,9 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                 selected_superpixels.append(key)
                 count += len(sp_cord[key])  
    
+
+
+
 
             # Random picking
             # selected_superpixels = np.random.choice(np.array(list(sp_cord.keys())), left, replace=False)
@@ -407,30 +410,30 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                     super_pixel_coordinates_1[pts1_cluster_label[i, j].cpu().numpy().item()].append((i, j))
             
             selected_superpixels , selected_superpixels_high = select_superpixels(context['image'][b, 0].permute(1, 2, 0) , super_pixel_coordinates_1  ,pts1_cluster_label , percentage=self.prune_percent)
-  
+            
             
             representation_gaussians_1 = []
             for sp in selected_superpixels:
                 num_pixels = int(len(super_pixel_coordinates_1[sp]) * 10 / 100)
                 representation_gaussians_1.extend(random.sample(super_pixel_coordinates_1[sp], num_pixels))
-
+            
             mask = np.ones((  context['image'].shape[-2]  , context['image'].shape[-1]), dtype=bool)  
             for sp in selected_superpixels:
                 for x, y in super_pixel_coordinates_1[sp]:
                     mask[x, y] = False
-                    
+                          
 
             for x, y in representation_gaussians_1:
                 mask[x, y] = True
 
 
             
-            # torchvision.utils.save_image(context['image'][b, 0] , "del.png")
-            # plt.imshow(mask, cmap="gray")
+            torchvision.utils.save_image(context['image'][b, 0] , "del.png")
+            plt.imshow(mask, cmap="gray")
 
 
-            # plt.savefig(f"mask_3d_{1}.png", bbox_inches='tight')
-            # plt.close()
+            plt.savefig(f"mask_3d_{1}.png", bbox_inches='tight')
+            plt.close()
 
             mask_tensor = torch.tensor(mask, dtype=torch.bool, device=context['rep'][b][0].device)
 
