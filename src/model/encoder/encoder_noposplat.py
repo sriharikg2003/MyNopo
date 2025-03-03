@@ -193,7 +193,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         self.patch_size = self.backbone.patch_embed.patch_size[0]
         self.raw_gs_dim = 1 + self.gaussian_adapter.d_in  # 1 for opacity
-        self.prune_percent =  80
+        self.prune_percent =  self.cfg.prune_percent
         self.gs_params_head_type = cfg.gs_params_head_type
 
         self.set_center_head(output_mode='pts3d', head_type='dpt', landscape_only=True,
@@ -309,7 +309,21 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
             # selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
             # Random picking
-            selected_superpixels = np.random.choice(np.array(list(sp_cord.keys())), left, replace=False)
+            # Pick till we reach 
+            selected_superpixels = []
+            total = 256 * 256 
+            required = int(total * (percentage * 0.01))
+
+            # Get the ordered superpixel keys using indices
+            indices = np.random.permutation(len(mean_wavelet_values))  
+            ordered_superpixels = np.array(list(sp_cord.keys()))[indices]
+
+            count = 0
+            for key in ordered_superpixels:
+                if count >= required:
+                    break
+                selected_superpixels.append(key)
+                count += len(sp_cord[key])  
             # selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
             selected_superpixels_high = []
 
