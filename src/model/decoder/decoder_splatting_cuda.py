@@ -77,8 +77,7 @@ class DecoderSplattingCUDA(Decoder[DecoderSplattingCUDACfg]):
         kwargs = {k: v for k, v in kwargs.items() if k in ["rep"]} 
         rep = kwargs["rep"] 
 
-
-
+        print(f"PERCENTAGE OF GAUSSIANS: {gaussians.means.shape[1]*100/(256*256*2)}")
         color, depth = render_cuda(
             rearrange(extrinsics, "b v i j -> (b v) i j"),
             rearrange(intrinsics, "b v i j -> (b v) i j"),

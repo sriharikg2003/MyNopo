@@ -410,6 +410,14 @@ class ModelWrapper(LightningModule):
         # batch["context"]["image"][0] = masked_img
         representation_gaussians = batch["context"]["rep"]
 
+
+        gauss_mask = representation_gaussians.view(b, -1)  #
+        gaussians.means = gaussians.means[:, gauss_mask.squeeze().bool(), :]
+        gaussians.covariances = gaussians.covariances[:, gauss_mask.squeeze().bool(), :, :]
+        gaussians.harmonics = gaussians.harmonics[:, gauss_mask.squeeze().bool(), :, :]
+        gaussians.opacities = gaussians.opacities[:,gauss_mask.squeeze().bool()]
+
+
         with self.benchmarker.time("decoder", num_calls=v):
             output = self.decoder.forward(
                 gaussians,
@@ -659,7 +667,6 @@ class ModelWrapper(LightningModule):
 
         representation_gaussians = batch["context"]["rep"]
         gaussians_original, gaussian_mod_ = self.encoder_(batch["context"] , self.global_step)
-
 
         gauss_mask = representation_gaussians.view(b, -1) 
         gaussians.means = gaussians.means * gauss_mask.unsqueeze(-1) 
