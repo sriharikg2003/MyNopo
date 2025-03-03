@@ -193,7 +193,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         self.patch_size = self.backbone.patch_embed.patch_size[0]
         self.raw_gs_dim = 1 + self.gaussian_adapter.d_in  # 1 for opacity
-        self.prune_percent =  80
+        self.prune_percent =  self.cfg.prune_percent
         self.gs_params_head_type = cfg.gs_params_head_type
 
         self.set_center_head(output_mode='pts3d', head_type='dpt', landscape_only=True,
@@ -302,17 +302,33 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                         print(f"Warning: Key {key} not found in sp_wave_values")
             mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
 
-            
-            left = int(len(sp_cord.keys()) * self.prune_percent / 100)
-            right = len(sp_cord.keys()) - left 
+
+            # left = int(len(sp_cord.keys()) * self.prune_percent / 100)
+            # right = len(sp_cord.keys()) - left 
             indices = np.argsort(mean_wavelet_values)
 
-            # selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
-            # Random picking
-            selected_superpixels = np.random.choice(np.array(list(sp_cord.keys())), left, replace=False)
-            # selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
-            selected_superpixels_high = []
 
+            # Pick till we reach 
+            selected_superpixels = []
+            total = 256 * 256 * 2
+            required = int(total * (self.prune_percent * 0.01))
+
+            # Get the ordered superpixel keys using indices
+            ordered_superpixels = np.array(list(sp_cord.keys()))[indices]
+
+            count = 0
+            for key in ordered_superpixels:
+                if count >= required:
+                    break
+                selected_superpixels.append(key)
+                count += len(sp_cord[key])  
+   
+
+            # Random picking
+            # selected_superpixels = np.random.choice(np.array(list(sp_cord.keys())), left, replace=False)
+            # selected_superpixels_high =   np.array(list(sp_cord.keys()))[indices[-right:]]  
+            
+            selected_superpixels_high = []
             return selected_superpixels , selected_superpixels_high
 
 

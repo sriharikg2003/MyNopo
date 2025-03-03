@@ -16,5 +16,5 @@ do
         wandb.mode=offline \
         test.overlap_range=large \
         model.encoder.prune_percent=$PRUNE_PERCENT \
-        test.title=Ours_${PRUNE_PERCENT}_pruning > 3D_Aware_On_2D_Checkpoint_${PRUNE_PERCENT}_prune_Acid.out
+        test.title=3D_with_2D_Ours_${PRUNE_PERCENT}_pruning > 3D_Aware_On_2D_Checkpoint_${PRUNE_PERCENT}_prune_Acid.out
 done
