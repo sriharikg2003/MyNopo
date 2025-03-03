@@ -193,7 +193,7 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
 
         self.patch_size = self.backbone.patch_embed.patch_size[0]
         self.raw_gs_dim = 1 + self.gaussian_adapter.d_in  # 1 for opacity
-        self.prune_percent =  random.choice([0,80])
+        self.prune_percent =  80
         self.gs_params_head_type = cfg.gs_params_head_type
 
         self.set_center_head(output_mode='pts3d', head_type='dpt', landscape_only=True,

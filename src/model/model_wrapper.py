@@ -423,7 +423,7 @@ class ModelWrapper(LightningModule):
                 which_img=(True, True),
                 original= False
             )
-        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS_3D/{name}/{self.test_cfg.overlap_range}/{self.test_cfg.title}"
+        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/3D_ON_2D_MODEL/{name}/{self.test_cfg.overlap_range}/{self.test_cfg.title}"
 
         os.makedirs(OUTPUT_FOLDER_PATH, exist_ok=True)
         images_prob = output.color[0]
@@ -602,7 +602,7 @@ class ModelWrapper(LightningModule):
         name = get_cfg()["wandb"]["name"]
 
 
-        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/OUR_OUTPUTS_3D/{name}/{self.test_cfg.overlap_range }/{self.test_cfg.title }"
+        OUTPUT_FOLDER_PATH = f"/workspace/raid/cdsbad/splat3r_try/NoPoSplat/3D_ON_2D_MODEL/{name}/{self.test_cfg.overlap_range }/{self.test_cfg.title }"
         os.makedirs(OUTPUT_FOLDER_PATH, exist_ok=True)
 
         saved_scores = {}
