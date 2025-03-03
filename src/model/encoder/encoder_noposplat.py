@@ -302,10 +302,8 @@ class EncoderNoPoSplat(Encoder[EncoderNoPoSplatCfg]):
                         print(f"Warning: Key {key} not found in sp_wave_values")
             mean_wavelet_values = np.array([np.nanmean(sp_wave_values[k]) if np.any(~np.isnan(sp_wave_values[k])) else 0 for k in sp_wave_values.keys()])
 
-            
-            left = int(len(sp_cord.keys()) * self.prune_percent / 100)
-            right = len(sp_cord.keys()) - left 
-            indices = np.argsort(mean_wavelet_values)
+
+
 
             # selected_superpixels = np.array(list(sp_cord.keys()))[indices[:left]]
             # Random picking
